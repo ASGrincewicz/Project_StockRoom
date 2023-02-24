@@ -30,11 +30,11 @@ class MasterInventory:
         else:
             print(f'{product.product_num} already exists.')
 
-    def add_multi_product(self, products_to_add):
+    def add_multi_product(self, products_to_add):  # parameter is a list of products.
         for product in products_to_add:
             self.add_single_product(product)
 
-    def search_inventory(self, search_term):
+    def search_inventory(self, search_term):  # Searches master inventory by string.
         results = 0
         for num, name in self.master_inventory.items():
             for prod_name in self.master_inventory[num].keys():
@@ -46,7 +46,7 @@ class MasterInventory:
         if not file_contents_read and results == 0:
             print('Try your search again after importing the contents of the Master Inventory file')
 
-    def search_by_num(self, num):
+    def search_by_num(self, num):  # Searches inventory by product number.
         if num in self.master_inventory.keys():
             for name, on_hand in self.master_inventory[num].items():
                 print(f'Result:{num}: {name}, On Hand: {on_hand}')

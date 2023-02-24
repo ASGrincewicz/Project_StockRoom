@@ -38,26 +38,25 @@ def main():
                 on_hand = int(input('How many are in stock?\n').strip().lower())
                 new_prod = Product(prod_name, prod_num, on_hand)
                 m_inv.add_single_product(new_prod)
-            case 'e':
+            case 'edit':
                 m_inv.edit_product()
-            case 'w':
+            case 'write':
                 m_inv.write_to_csv()
-            case 'r':
+            case 'read':
                 m_inv.read_from_csv()
             case 'sort':
                 m_inv.write_to_csv()
-            case 'b':
+            case 'backstock':
                 m_stock.back_stock_product()
             case 'create':
                 m_stock.create_new_location()
-            case 'rl':
+            case 'read loc':
                 m_stock.read_from_csv()
             case 'quit':
                 print('Have you updated the Master Inventory?\n')
                 response = input('Enter Y or N\n').strip().upper()
                 if response == 'N':
                     m_inv.write_to_csv()
-
                     exit()
                 elif response == 'Y':
                     exit()
