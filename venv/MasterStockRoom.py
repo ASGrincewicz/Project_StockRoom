@@ -3,6 +3,7 @@ import MasterInventory
 import csv
 from pathlib import Path
 
+
 file_contents_read = False
 file_path = '/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/master_stockroom_location.csv'
 ld_stock_locations = list()
@@ -36,19 +37,27 @@ class MasterStockRoom:
         print(f'Location: {category}-{aisle}-{column}-{row} has been created.')
         self.write_to_csv()
 
-    def back_stock_product(self):
-        location = input('Enter the Back Stock Location:\n').strip().upper()
-        product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
-        amount = int(input('Enter the Amount to Back Stock:\n'))
-
+    def back_stock_product(self, location, product_id, prod_name, amount):
+        successful = False
         for i in range(0, len(self.locations)):
-
             if location in self.locations[i].keys():
-                self.locations[i][location].append([product_id, amount])
-                print(f'{amount} of {product_id} are now in {location}.')
+                self.locations[i][location].append([product_id, prod_name, amount])
+                print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
+                successful = True
                 break
             else:
+                successful = False
                 continue
+        if not successful:
+            print('Location not found.')
+
+    def audit_location(self):
+        location = input('Please enter the location:\n')
+        for i in range(0, len(self.locations)):
+            if location in self.locations[i].keys():
+                print(f'{location} contains:\n')
+                for prod_id, prod_name, amount in self.locations[i][location]:
+                    print(f'{prod_id}:{prod_name}: Count: {amount}')
 
     def write_to_csv(self):
         path = Path(file_path)

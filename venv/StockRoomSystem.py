@@ -47,11 +47,17 @@ def main():
             case 'sort':
                 m_inv.write_to_csv()
             case 'backstock':
-                m_stock.back_stock_product()
+                location = input('Enter the Back Stock Location:\n').strip().upper()
+                product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
+                prod_name = m_inv.search_by_num(product_id)[0]
+                amount = int(input('Enter the Amount to Back Stock:\n'))
+                m_stock.back_stock_product(location, product_id, prod_name, amount)
             case 'create':
                 m_stock.create_new_location()
             case 'read loc':
                 m_stock.read_from_csv()
+            case 'audit':
+                m_stock.audit_location()
             case 'quit':
                 print('Have you updated the Master Inventory?\n')
                 response = input('Enter Y or N\n').strip().upper()

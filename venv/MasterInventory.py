@@ -50,8 +50,10 @@ class MasterInventory:
         if num in self.master_inventory.keys():
             for name, on_hand in self.master_inventory[num].items():
                 print(f'Result:{num}: {name}, On Hand: {on_hand}')
+                return name, on_hand
         else:
             print('Item not found.')
+            return None
 
     def sort_inventory_by_num(self):
         return sorted(self.master_inventory.keys())
