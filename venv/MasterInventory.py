@@ -83,6 +83,7 @@ def search_by_num(num):
     :param num: Product number.
     :return: Returns a tuple of the product name and on hand count.
     """
+    num = num.zfill(4)
     if num in master_inventory.keys():
         for name, on_hand in master_inventory[num].items():
             print(f'Result:{num}: {name}, On Hand: {on_hand}')

@@ -39,6 +39,7 @@ def create_new_location():
             case 'G':
                 g_stock_locations.append({aisle: {column: row}})
         locations.append({f'{category}-{aisle}-{column}-{row}': list()})
+        create_new_location_file(f'{category}-{aisle}-{column}-{row}')
     print(f'Location: {category}-{aisle}-{column}-{row} has been created.')
     write_to_stockroom_csv()
 
@@ -78,6 +79,7 @@ def create_multiple_locations():
                             continue
                 if {f'{category}-{aisle}-{chr(c)}-{i}': list()} not in locations:
                     locations.append({f'{category}-{aisle}-{chr(c)}-{i}': list()})
+                    create_new_location_file(f'{category}-{aisle}-{chr(c)}-{i}')
                 else:
                     continue
                 print(f'Location: {category}-{aisle}-{chr(c)}-{i} has been created.')
@@ -98,6 +100,7 @@ def back_stock_product():
             prod_name = MasterInventory.search_by_num(product_id)[0]
             amount = int(input('Enter the Amount to Back Stock:\n'))
             locations[i][location].append([product_id, prod_name, amount])
+            add_product(location, product_id, amount)
             print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
             successful = True
             break
@@ -141,7 +144,8 @@ def write_to_stockroom_csv():
                     location_list = g_stock_locations
             for location in location_list:
                 for aisle in sorted(location.keys()):
-                    writer.writerow([f'{category}', f'{aisle}', f'{i}', f'{j}'])
+                    for i, j in location[aisle].items():
+                        writer.writerow([f'{category}', f'{aisle}', f'{i}', f'{j}'])
 
     print('Writing to file completed.')
 
