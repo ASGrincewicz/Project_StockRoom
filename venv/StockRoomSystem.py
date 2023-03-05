@@ -10,10 +10,10 @@ def main():
     while True:
         commands = input('Enter a command:\n').strip().lower()
         match commands:
-            case 's':
+            case 'search':
                 search_inventory(input('Enter your search term:\n').strip().upper())
             case 'num s':
-                search_by_num(input('Enter your search term:\n').strip().upper().zfill(4))
+                search_by_prod_num(input('Enter your search term:\n').strip().upper().zfill(4))
             case 'add':
                 add_single_product()
             case 'edit':

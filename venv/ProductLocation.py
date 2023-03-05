@@ -1,18 +1,16 @@
 # Aaron Grincewicz 02/19/2023
 from pathlib import Path
 import csv
-from MasterInventory import search_by_num, verify_prod_num
+from MasterInventory import search_by_prod_num, verify_prod_num
 
-
+"""
 class ProductLocation:
 
     def __init__(self, category, aisle, column, row):
         self.location_id = f'{category}-{aisle}-{column}-{row}'
         self.current_products = dict()
         print(f'{self.location_id} added.')
-
-    def __str__(self):
-        return f'{self.category}-{self.aisle}-{self.column}-{self.row}'
+"""
 
 
 file_contents_read = False
@@ -72,42 +70,45 @@ def audit_location():
     else:
         print(f"{location} does not contain any products.")
 
+
 def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
     location = input('Enter the location:\n')
-    product_id = ''
+    product_num = ''
     amount = 0
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
     confirmation = 'N'
     while confirmation[0] != 'Y':
-        product_id = input('Enter the product number:\n').zfill(4)
+        product_num = input('Enter the product number:\n').zfill(4)
         amount = input('Enter the amount to back stock:\n')
-        if not verify_prod_num(product_id):
+        num_to_verify = {product_num}
+        if not verify_prod_num(num_to_verify):
             print('Product Found')
-            product = search_by_num(product_id)
+            product = search_by_prod_num(product_num)
             print(f'{amount} of {product[0]} will be placed in {location}.')
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
-            print(f'{product_id} not found.')
+            print(f'{product_num} not found.')
     if not location_csv.exists():
         print('File not found.')
         return
     with open(location_csv, 'a', newline='') as location_file:
         writer = csv.writer(location_file)
-        writer.writerow([f'{product_id}', f'{product[0]}', f'{amount}'])
+        writer.writerow([f'{product_num}', f'{product[0]}', f'{amount}'])
 
 
-def remove_product(product_id, amount):
-    if product_id in current_products:
-        count = current_products[product_id]
+def remove_product(product_num, amount):
+    if product_num in current_products:
+        count = current_products[product_num]
         if amount <= count:
             count -= amount
         else:
             print(f'This location contains {count}')
 
 
-def get_product_amount(product_id):
-    if product_id in current_products:
-        return current_products[product_id]
+def get_product_amount(product_num) -> int:
+    if product_num in current_products:
+        return current_products[product_num]
     else:
         print('This product is not here.')
+        return 0

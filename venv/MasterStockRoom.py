@@ -97,7 +97,7 @@ def back_stock_product():
     for i in range(0, len(locations)):
         if location in locations[i].keys():
             product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
-            prod_name = MasterInventory.search_by_num(product_id)[0]
+            prod_name = MasterInventory.search_by_prod_num(product_id)[0]
             amount = int(input('Enter the Amount to Back Stock:\n'))
             locations[i][location].append([product_id, prod_name, amount])
             back_stock_product()

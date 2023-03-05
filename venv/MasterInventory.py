@@ -14,14 +14,18 @@ file_contents_written = False
 master_inventory = dict()
 
 
-def verify_prod_num(num) -> bool:
+def verify_prod_num(nums_to_check) -> bool:
     """
     Searches the master_inventory dictionary for a key equal to the specified product number.
-    :param num: Product number to verify
+    :param nums_to_check: Product number to verify
     :return: True if key does not exist, False otherwise.
     """
-    if num.zfill(4) not in master_inventory.keys():
-        return True
+    for num in nums_to_check:
+        if num.zfill(4) not in master_inventory.keys():
+            return True
+        else:
+            print(f"{num} found.")
+            return False
 
 
 def add_single_product():
@@ -31,7 +35,8 @@ def add_single_product():
     prod_name = input('Enter the product name:\n').strip().upper()
     prod_num_input = input('Enter the product number:\n').strip().lower()
     # prod_num = ''
-    while not verify_prod_num(prod_num_input):
+    nums_to_verify = {prod_num_input}
+    while not verify_prod_num(nums_to_verify):
         prod_num_input = input('Enter the product number:\n').strip().lower()
     else:
         prod_num = prod_num_input
@@ -41,8 +46,6 @@ def add_single_product():
     if verify_prod_num(new_prod.product_num):
         master_inventory[new_prod.product_num] = {new_prod.product_name.upper(): new_prod.on_hand_count}
         print(f'{new_prod.product_name.upper()} added.')
-    else:
-        print(f'{new_prod.product_num} already exists.')
 
 
 def add_multi_product_from_file(products_to_add):
@@ -51,12 +54,13 @@ def add_multi_product_from_file(products_to_add):
     :param products_to_add: A list of products created from the csv file read.
 
     """
+    nums_to_verify = set()
     for product in products_to_add:
-        if verify_prod_num(product.product_num):
+        nums_to_verify.add(product.product_num)
+    if verify_prod_num(nums_to_verify):
+        for product in products_to_add:
             master_inventory[product.product_num] = {product.product_name.upper(): product.on_hand_count}
             print(f'{product.product_name.upper()} added.')
-        else:
-            print(f'{product.product_num} already exists.')
 
 
 def search_inventory(search_term):
@@ -78,23 +82,23 @@ def search_inventory(search_term):
         print('Try your search again after importing the contents of the Master Inventory file')
 
 
-def search_by_num(num):
+def search_by_prod_num(product_num):
     """
     Allows user to search the master inventory by product number.
-    :param num: Product number.
+    :param product_num: Product number.
     :return: Returns a tuple of the product name and on hand count.
     """
-    num = num.zfill(4)
-    if num in master_inventory.keys():
-        for name, on_hand in master_inventory[num].items():
-            print(f'Result:{num}: {name}, On Hand: {on_hand}')
+    product_num = product_num.zfill(4)
+    if product_num in master_inventory.keys():
+        for name, on_hand in master_inventory[product_num].items():
+            print(f'Result:{product_num}: {name}, On Hand: {on_hand}')
             return name, on_hand
     else:
         print('Item not found.')
         return None
 
 
-def sort_inventory_by_num():
+def sort_inventory_by_prod_num() -> list:
     """
     Returns the master inventory list sorted by product number.
     :return:
@@ -120,7 +124,7 @@ def read_from_master_inventory_csv():
     product_num = list()
     product_name = list()
     on_hand_count = list()
-    products_to_add = list()
+    products_to_add = set()
 
     if master_inventory_file.exists():
         with open('master_inventory.csv', 'r', newline='') as master_file:
@@ -134,7 +138,7 @@ def read_from_master_inventory_csv():
         i = 0
         for item in product_num:
             prod = Product(f'{product_name[i]}', f'{item}', f'{on_hand_count[i]}')
-            products_to_add.append(prod)
+            products_to_add.add(prod)
             i += 1
         global file_contents_read
         file_contents_read = True
@@ -153,7 +157,7 @@ def write_to_master_inventory_csv():
         writer = csv.writer(master_file)
         if write_mode == 'w':
             writer.writerow(field_names)
-        for num in sort_inventory_by_num():
+        for num in sort_inventory_by_prod_num():
             for name, count in master_inventory[num].items():
                 writer.writerow([f'{num}', f'{name}', f'{count}'])
     print('Writing to file completed.')
