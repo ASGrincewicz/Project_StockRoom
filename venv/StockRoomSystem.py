@@ -25,7 +25,7 @@ def main():
             case 'sort':
                 write_to_master_inventory_csv()
             case 'backstock':
-                add_product()
+                back_stock_product()
             case 'create loc':
                 create_new_location()
             case 'create multi loc':
@@ -33,7 +33,7 @@ def main():
             case 'read loc':
                 read_from_stock_room_csv()
             case 'audit':
-                read_location_file()
+                audit_location()
             case 'quit':
                 print('Have you updated the Master Inventory?\n')
                 response = input('Enter Y or N\n').strip().upper()

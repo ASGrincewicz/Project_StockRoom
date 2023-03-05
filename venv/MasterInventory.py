@@ -8,6 +8,7 @@ import csv
 from Product import Product
 from pathlib import Path
 
+master_inventory_file = Path('master_inventory.csv')
 file_contents_read = False
 file_contents_written = False
 master_inventory = dict()
@@ -121,9 +122,8 @@ def read_from_master_inventory_csv():
     on_hand_count = list()
     products_to_add = list()
 
-    path = Path('/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/master_inventory.csv')
-    if Path.is_file(path):
-        with open('master_inventory.csv', 'r') as master_file:
+    if master_inventory_file.exists():
+        with open('master_inventory.csv', 'r', newline='') as master_file:
             reader = csv.DictReader(master_file)
 
             for col in reader:
@@ -144,12 +144,11 @@ def read_from_master_inventory_csv():
 
 
 def write_to_master_inventory_csv():
-    path = Path('/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/master_inventory.csv')
     field_names = ['Product #', 'Product Name', 'On Hand Count']
     write_mode = 'a'
-    if file_contents_read or not Path.is_file(path):
+    if file_contents_read or not master_inventory_file.exists():
         write_mode = 'w'
-    with open(path, write_mode) as master_file:
+    with open(master_inventory_file, write_mode, newline='') as master_file:
         print(f'File open with Write Mode: {write_mode}')
         writer = csv.writer(master_file)
         if write_mode == 'w':

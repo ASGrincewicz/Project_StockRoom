@@ -9,12 +9,12 @@ import csv
 from pathlib import Path
 
 file_contents_read = False
-file_path = '/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/master_stockroom_location.csv'
+master_stockroom_csv = 'master_stockroom_location.csv'
 ld_stock_locations = list()
 hd_stock_locations = list()
 g_stock_locations = list()
 locations = list()
-categories = ['LD', 'HD', 'G']
+categories = ('LD', 'HD', 'G')
 
 
 def create_new_location():
@@ -100,7 +100,7 @@ def back_stock_product():
             prod_name = MasterInventory.search_by_num(product_id)[0]
             amount = int(input('Enter the Amount to Back Stock:\n'))
             locations[i][location].append([product_id, prod_name, amount])
-            add_product(location, product_id, amount)
+            back_stock_product()
             print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
             successful = True
             break
@@ -124,12 +124,12 @@ def audit_location():
 
 
 def write_to_stockroom_csv():
-    path = Path(file_path)
+    master_stockroom_path = Path(master_stockroom_csv)
     field_names = ['Category', 'Aisle #', 'Column', 'Row #']
     write_mode = 'w'
-    if file_contents_read or not Path.is_file(path):
+    if file_contents_read or not master_stockroom_path.exists():
         write_mode = 'w'
-    with open(path, write_mode) as master_file:
+    with open(master_stockroom_path, write_mode, newline='') as master_file:
         print(f'File open with Write Mode: {write_mode}')
         writer = csv.writer(master_file)
         if write_mode == 'w':
@@ -157,9 +157,9 @@ def read_from_stock_room_csv():
     columns = list()
     rows = list()
 
-    path = Path(file_path)
-    if Path.is_file(path):
-        with open(file_path, 'r') as master_file:
+    path = Path(master_stockroom_csv)
+    if path.exists():
+        with open(master_stockroom_csv, 'r') as master_file:
             reader = csv.DictReader(master_file)
 
             for col in reader:

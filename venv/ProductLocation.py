@@ -20,28 +20,28 @@ current_products = dict()
 
 
 def create_new_location_file(location):
-    path = Path(f'/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/StockroomLocations/{location}.csv')
+    location_csv = Path(f'StockroomLocations/{location}.csv')
 
     field_names = ['Product #', 'Product Name', 'Amount']
 
-    if Path.is_file(path):
+    if location_csv.exists():
         print('File already exists.')
         return
-    with open(path, 'w') as location_file:
+    with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow(field_names)
 
 
-def read_location_file():
+def read_location_file(location):
     current_products.clear()
-    location = input('Please enter the location:\n')
+
     product_num = list()
     product_name = list()
     amount_in_loc = list()
     # products_in_loc = list()
-    path = Path(f'/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/StockroomLocations/{location}.csv')
-    if Path.is_file(path):
-        with open(path, 'r') as location_file:
+    location_csv = Path(f'StockroomLocations/{location}.csv')
+    if location_csv.exists():
+        with open(location_csv, 'r', newline='') as location_file:
             reader = csv.DictReader(location_file)
 
             for col in reader:
@@ -60,17 +60,24 @@ def read_location_file():
 
     else:
         print('File not found.')
-    for num in current_products.keys():
-        for prod, amount in current_products[num].items():
-            print(f'{num}: {prod}: Amount here: {amount}')
 
 
-def add_product():  # Need to read from location file first, then combine amounts if item exists.
+def audit_location():
+    location = input('Please enter the location:\n')
+    read_location_file(location)
+    if len(current_products) > 0:
+        for num in current_products.keys():
+            for prod, amount in current_products[num].items():
+                print(f'{num}: {prod}: Amount here: {amount}')
+    else:
+        print(f"{location} does not contain any products.")
+
+def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
     location = input('Enter the location:\n')
     product_id = ''
     amount = 0
     product = None
-    path = Path(f'/Users/aarongrincewicz/PycharmProjects/StockRoom/venv/StockroomLocations/{location}.csv')
+    location_csv = Path(f'StockroomLocations/{location}.csv')
     confirmation = 'N'
     while confirmation[0] != 'Y':
         product_id = input('Enter the product number:\n').zfill(4)
@@ -82,10 +89,10 @@ def add_product():  # Need to read from location file first, then combine amount
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
             print(f'{product_id} not found.')
-    if not Path.is_file(path):
+    if not location_csv.exists():
         print('File not found.')
         return
-    with open(path, 'a') as location_file:
+    with open(location_csv, 'a', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow([f'{product_id}', f'{product[0]}', f'{amount}'])
 
