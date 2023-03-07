@@ -3,8 +3,6 @@ from Product import *
 from ProductLocation import *
 from MasterInventory import *
 
-m_inv = master_inventory
-
 
 def main():
     while True:
@@ -26,6 +24,8 @@ def main():
                 write_to_master_inventory_csv()
             case 'backstock':
                 back_stock_product()
+            case 'delete product':
+                delete_product()
             case 'create loc':
                 create_new_location()
             case 'create multi loc':

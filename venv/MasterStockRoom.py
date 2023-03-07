@@ -8,11 +8,12 @@ import MasterInventory
 import csv
 from pathlib import Path
 
+master_stockroom_csv = Path('master_stockroom_location.csv')
 file_contents_read = False
-master_stockroom_csv = 'master_stockroom_location.csv'
-ld_stock_locations = list()
-hd_stock_locations = list()
-g_stock_locations = list()
+
+cat_1_stock_locations = list()
+cat_2_stock_locations = list()
+cat_3_stock_locations = list()
 locations = list()
 categories = ('LD', 'HD', 'G')
 
@@ -33,11 +34,11 @@ def create_new_location():
     else:
         match category:
             case 'LD':
-                ld_stock_locations.append({aisle: {column: row}})
+                cat_1_stock_locations.append({aisle: {column: row}})
             case 'HD':
-                hd_stock_locations.append({aisle: {column: row}})
+                cat_2_stock_locations.append({aisle: {column: row}})
             case 'G':
-                g_stock_locations.append({aisle: {column: row}})
+                cat_3_stock_locations.append({aisle: {column: row}})
         locations.append({f'{category}-{aisle}-{column}-{row}': list()})
         create_new_location_file(f'{category}-{aisle}-{column}-{row}')
     print(f'Location: {category}-{aisle}-{column}-{row} has been created.')
@@ -63,18 +64,18 @@ def create_multiple_locations():
                 i = f'{i}'.zfill(2)
                 match category:
                     case 'LD':
-                        if {aisle: {chr(c): i}} not in ld_stock_locations:
-                            ld_stock_locations.append({aisle: {chr(c): i}})
+                        if {aisle: {chr(c): i}} not in cat_1_stock_locations:
+                            cat_1_stock_locations.append({aisle: {chr(c): i}})
                         else:
                             continue
                     case 'HD':
-                        if {aisle: {chr(c): i}} not in hd_stock_locations:
-                            hd_stock_locations.append({aisle: {chr(c): i}})
+                        if {aisle: {chr(c): i}} not in cat_2_stock_locations:
+                            cat_2_stock_locations.append({aisle: {chr(c): i}})
                         else:
                             continue
                     case 'G':
-                        if {aisle: {chr(c): i}} not in g_stock_locations:
-                            g_stock_locations.append({aisle: {chr(c): i}})
+                        if {aisle: {chr(c): i}} not in cat_3_stock_locations:
+                            cat_3_stock_locations.append({aisle: {chr(c): i}})
                         else:
                             continue
                 if {f'{category}-{aisle}-{chr(c)}-{i}': list()} not in locations:
@@ -86,29 +87,29 @@ def create_multiple_locations():
     write_to_stockroom_csv()
 
 
-def back_stock_product():
-    """
-    Prompts user for location and product info.  Adds product to location.
-
-    """
-    location = input('Enter the Back Stock Location:\n').strip().upper()
-
-    successful = False
-    for i in range(0, len(locations)):
-        if location in locations[i].keys():
-            product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
-            prod_name = MasterInventory.search_by_prod_num(product_id)[0]
-            amount = int(input('Enter the Amount to Back Stock:\n'))
-            locations[i][location].append([product_id, prod_name, amount])
-            back_stock_product()
-            print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
-            successful = True
-            break
-        else:
-            successful = False
-            continue
-    if not successful:
-        print('Location not found.')
+# def back_stock_product():
+#     """
+#     Prompts user for location and product info.  Adds product to location.
+#
+#     """
+#     location = input('Enter the Back Stock Location:\n').strip().upper()
+#
+#     successful = False
+#     for i in range(0, len(locations)):
+#         if location in locations[i].keys():
+#             product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
+#             prod_name = MasterInventory.search_by_prod_num(product_id)[0]
+#             amount = int(input('Enter the Amount to Back Stock:\n'))
+#             locations[i][location].append([product_id, prod_name, amount])
+#             back_stock_product()
+#             print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
+#             successful = True
+#             break
+#         else:
+#             successful = False
+#             continue
+#     if not successful:
+#         print('Location not found.')
 
 
 def audit_location():
@@ -124,12 +125,12 @@ def audit_location():
 
 
 def write_to_stockroom_csv():
-    master_stockroom_path = Path(master_stockroom_csv)
+    # master_stockroom_path = Path(master_stockroom_csv)
     field_names = ['Category', 'Aisle #', 'Column', 'Row #']
     write_mode = 'w'
-    if file_contents_read or not master_stockroom_path.exists():
+    if file_contents_read or not master_stockroom_csv.exists():
         write_mode = 'w'
-    with open(master_stockroom_path, write_mode, newline='') as master_file:
+    with open(master_stockroom_csv, write_mode, newline='') as master_file:
         print(f'File open with Write Mode: {write_mode}')
         writer = csv.writer(master_file)
         if write_mode == 'w':
@@ -137,11 +138,11 @@ def write_to_stockroom_csv():
         for category in categories:
             match category:
                 case 'LD':
-                    location_list = ld_stock_locations
+                    location_list = cat_1_stock_locations
                 case 'HD':
-                    location_list = hd_stock_locations
+                    location_list = cat_2_stock_locations
                 case 'G':
-                    location_list = g_stock_locations
+                    location_list = cat_3_stock_locations
             for location in location_list:
                 for aisle in sorted(location.keys()):
                     for i, j in location[aisle].items():
@@ -157,8 +158,7 @@ def read_from_stock_room_csv():
     columns = list()
     rows = list()
 
-    path = Path(master_stockroom_csv)
-    if path.exists():
+    if master_stockroom_csv.exists():
         with open(master_stockroom_csv, 'r') as master_file:
             reader = csv.DictReader(master_file)
 
@@ -175,11 +175,11 @@ def read_from_stock_room_csv():
             row = rows[i]
             locations.append({f'{category}-{aisle}-{col}-{row}': list()})
             if category == 'LD':
-                ld_stock_locations.append({aisle: {col: row}})
+                cat_1_stock_locations.append({aisle: {col: row}})
             elif category == 'HD':
-                hd_stock_locations.append({aisle: {col: row}})
+                cat_2_stock_locations.append({aisle: {col: row}})
             elif category == 'G':
-                g_stock_locations.append({aisle: {col: row}})
+                cat_3_stock_locations.append({aisle: {col: row}})
             else:
                 print(f'{category} does not exist.')
             i += 1

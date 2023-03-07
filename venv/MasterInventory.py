@@ -120,6 +120,26 @@ def edit_product():
         print('Product not found. Have you imported the Master Inventory?')
 
 
+def update_product_location(product_num):
+    if product_num in master_inventory.keys():
+        master_inventory[product_num].update()
+
+
+def delete_product():
+    product_num = input('Please enter the Product number of the item you want to edit.\n').strip().zfill(4)
+    search_by_prod_num(product_num)
+    print("Confirm deletion? Enter 'Y' for Yes, 'N' for No:\n")
+    confirm = input().strip().upper()
+    if confirm == 'Y':
+        master_inventory.pop(product_num)
+    else:
+        return
+    if verify_prod_num(product_num):
+        print(f"Product number {product_num} has been deleted.")
+    else:
+        print(f"An error occurred.")
+
+
 def read_from_master_inventory_csv():
     product_num = list()
     product_name = list()
