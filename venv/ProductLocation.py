@@ -63,10 +63,13 @@ def read_location_file(location):
 def audit_location():
     location = input('Please enter the location:\n')
     read_location_file(location)
+    product_count = 0
     if len(current_products) > 0:
         for num in current_products.keys():
             for prod, amount in current_products[num].items():
                 print(f'{num}: {prod}: Amount here: {amount}')
+                product_count = product_count + int(amount)
+        print(f"Total Located Here: {product_count}")
     else:
         print(f"{location} does not contain any products.")
 
@@ -92,7 +95,7 @@ def back_stock_product():  # Need to read from location file first, then combine
     if not location_csv.exists():
         print('File not found.')
         return
-    update_product_location(product_num, location)
+    update_product_location(True, product_num, location)
     with open(location_csv, 'a', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow([f'{product_num}', f'{product[0]}', f'{amount}'])

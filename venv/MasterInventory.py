@@ -72,13 +72,17 @@ def search_inventory(search_term):
     :param search_term: The string to search product names for.
     """
     results = 0
+    print("RESULTS:")
+    print("___________________________________________________")
     for num, name in master_inventory.items():
         for prod_name in master_inventory[num].keys():
             if search_term in prod_name:
                 print(
-                    f'Product:{prod_name.upper()}\\Item Number:{num}\\Locations:{master_inventory[num][prod_name]}')
+                    f'+ {prod_name.upper()} | Item Number: {num} \nLocations:\n{master_inventory[num][prod_name]}')
+                print("---------------------------------------------------")
                 results += 1
     print(f'Search Results: {results}')
+    print("___________________________________________________")
     if not file_contents_read and results == 0:
         print('Try your search again after importing the contents of the Master Inventory file')
 
@@ -92,7 +96,6 @@ def search_by_prod_num(product_num):
     product_num = product_num.zfill(4)
     if product_num in master_inventory.keys():
         for name, locations in master_inventory[product_num].items():
-            # print(f'Result:{product_num}: {name}, Locations: {locations}')
             return name, locations
     else:
         print('Item not found.')
@@ -123,16 +126,20 @@ def edit_product():
         print('Product not found. Have you imported the Master Inventory?')
 
 
-def update_product_location(product_num, location):
+def update_product_location(add_take, product_num, location):
     if product_num in master_inventory.keys():
         num_key = master_inventory[product_num]
         for name in num_key.keys():
             name_key = num_key[name]
-            if name_key == '' or name_key == "UNLOCATED":
-                master_inventory[product_num] = {name: f"{location}"}
-            else:
-                master_inventory[product_num] = {name: f"{name_key}\n{location}\n"}
-            print(name_key)
+            if add_take:
+                if name_key == '' or name_key == "UNLOCATED":
+                    master_inventory[product_num] = {name: f"{location}"}
+                else:
+                    master_inventory[product_num] = {name: f"{name_key}\n{location}"}
+            elif not add_take:
+                if location in name_key:
+                    adjusted_key = name_key.replace(location, '')
+                    master_inventory[product_num] = {name: adjusted_key.strip('\n')}
 
 
 def delete_product():
@@ -183,9 +190,7 @@ def read_from_master_inventory_csv():
 
         i = 0
         for item in product_num:
-            # prod = Product(f'{product_name[i]}', f'{item}', f'{locations}')
             products_to_add[item] = {product_name[i]: locations[i]}
-            print(item)
             i += 1
         global file_contents_read
         file_contents_read = True
