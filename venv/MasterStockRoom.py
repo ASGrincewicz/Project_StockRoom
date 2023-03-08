@@ -121,7 +121,7 @@ def audit_location():
         if location in locations[i].keys():
             print(f'{location} contains:\n')
             for prod_id, prod_name, amount in locations[i][location]:
-                print(f'{prod_id}:{prod_name}: Count: {amount}')
+                print(f'{prod_id}:{prod_name}: Amount: {amount}')
 
 
 def write_to_stockroom_csv():

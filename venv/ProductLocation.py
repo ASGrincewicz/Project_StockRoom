@@ -1,7 +1,7 @@
 # Aaron Grincewicz 02/19/2023
 from pathlib import Path
 import csv
-from MasterInventory import search_by_prod_num, verify_prod_num
+from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location
 
 """
 class ProductLocation:
@@ -72,7 +72,7 @@ def audit_location():
 
 
 def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
-    location = input('Enter the location:\n')
+    location = input('Enter the location:\n').strip().upper()
     product_num = ''
     amount = 0
     product = None
@@ -92,6 +92,7 @@ def back_stock_product():  # Need to read from location file first, then combine
     if not location_csv.exists():
         print('File not found.')
         return
+    update_product_location(product_num, location)
     with open(location_csv, 'a', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow([f'{product_num}', f'{product[0]}', f'{amount}'])
