@@ -12,9 +12,23 @@ class ProductLocation:
         print(f'{self.location_id} added.')
 """
 
-
 file_contents_read = False
-current_products = dict()
+# current_products = dict()
+
+
+def get_location_input():
+    location = input('Please enter the location:\n').strip().upper()
+    return location
+
+
+def get_prod_num_input():
+    prod_num = input('Enter the product number:\n').zfill(4)
+    return prod_num
+
+
+def get_amount_input():
+    amount = int(input('Enter the amount:\n'))
+    return amount
 
 
 def create_new_location_file(location):
@@ -28,10 +42,11 @@ def create_new_location_file(location):
     with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow(field_names)
+        return
 
 
-def read_location_file(location):
-    current_products.clear()
+def read_location_file(location) -> dict:
+    products_in_loc_file = dict()
 
     product_num = list()
     product_name = list()
@@ -49,24 +64,25 @@ def read_location_file(location):
 
         i = 0
         for item in product_num:
-            if item not in current_products.keys():
-                current_products[item] = {product_name[i]: amount_in_loc[i]}
-            elif item in current_products.keys():
-                current_amount = current_products[item][product_name[i]]
-                current_products[item] = {product_name[i]: int(amount_in_loc[i]) + int(current_amount)}
+            if item not in products_in_loc_file.keys():
+                products_in_loc_file[item] = {product_name[i]: amount_in_loc[i]}
+            elif item in products_in_loc_file.keys():
+                current_amount = products_in_loc_file[item][product_name[i]]
+                products_in_loc_file[item] = {product_name[i]: int(amount_in_loc[i]) + int(current_amount)}
             i += 1
-
+        return products_in_loc_file
     else:
         print('File not found.')
+        return dict()
 
 
 def audit_location():
-    location = input('Please enter the location:\n')
-    read_location_file(location)
+    location = get_location_input()
+    prod_in_loc = read_location_file(location)
     product_count = 0
-    if len(current_products) > 0:
-        for num in current_products.keys():
-            for prod, amount in current_products[num].items():
+    if len(prod_in_loc) > 0:
+        for num in prod_in_loc.keys():
+            for prod, amount in prod_in_loc[num].items():
                 print(f'{num}: {prod}: Amount here: {amount}')
                 product_count = product_count + int(amount)
         print(f"Total Located Here: {product_count}")
@@ -75,15 +91,15 @@ def audit_location():
 
 
 def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
-    location = input('Enter the location:\n').strip().upper()
+    location = get_location_input()
     product_num = ''
     amount = 0
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
     confirmation = 'N'
     while confirmation[0] != 'Y':
-        product_num = input('Enter the product number:\n').zfill(4)
-        amount = input('Enter the amount to back stock:\n')
+        product_num = get_prod_num_input()
+        amount = get_amount_input()
         num_to_verify = {product_num}
         if not verify_prod_num(num_to_verify):
             print('Product Found')
@@ -96,23 +112,48 @@ def back_stock_product():  # Need to read from location file first, then combine
         print('File not found.')
         return
     update_product_location(True, product_num, location)
-    with open(location_csv, 'a', newline='') as location_file:
+    prod_in_loc_file = read_location_file(location)
+    if product_num in prod_in_loc_file.keys():
+        for name, count in prod_in_loc_file[product_num].items():
+            amount += int(count)
+            prod_in_loc_file[product_num] = {name: amount}
+    elif product_num not in prod_in_loc_file.keys():
+        prod_in_loc_file[product_num] = {product[0]: amount}
+
+    with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
-        writer.writerow([f'{product_num}', f'{product[0]}', f'{amount}'])
+        field_names = ['Product #', 'Product Name', 'Amount']
+        writer.writerow(field_names)
+        for i in prod_in_loc_file.keys():
+            for name, count in prod_in_loc_file[product_num].items():
+                writer.writerow([f'{i}', f'{name}', f'{amount}'])
+        return
 
 
-def remove_product(product_num, amount):
-    if product_num in current_products:
-        count = current_products[product_num]
-        if amount <= count:
-            count -= amount
-        else:
-            print(f'This location contains {count}')
+def remove_product():
+    location = get_location_input()
+    product_num = get_prod_num_input()
+    amount = get_amount_input()
+    prod_in_loc = read_location_file(location)
+    if product_num in prod_in_loc.keys():
+        for name, count in prod_in_loc[product_num].items():
+            prod_name = name
+            initial_count = int(count)
+            print(prod_name)
+            print(initial_count)
+            if amount <= int(initial_count):
+                prod_count = initial_count - amount
+                print(f"Taking: {amount} of {initial_count}")
+            else:
+                print(f'This location contains {initial_count}')
 
 
-def get_product_amount(product_num) -> int:
-    if product_num in current_products:
-        return current_products[product_num]
+def get_product_amount() -> int:
+    location = get_location_input()
+    prod_in_loc = read_location_file(location)
+    product_num = get_prod_num_input()
+    if product_num in prod_in_loc:
+        return prod_in_loc[product_num]
     else:
         print('This product is not here.')
         return 0

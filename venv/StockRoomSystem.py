@@ -24,6 +24,8 @@ def main():
                 write_to_master_inventory_csv()
             case 'backstock':
                 back_stock_product()
+            case 'take':
+                remove_product()
             case 'delete product':
                 delete_product()
             case 'create loc':
