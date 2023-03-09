@@ -12,10 +12,6 @@ class ProductLocation:
         print(f'{self.location_id} added.')
 """
 
-file_contents_read = False
-# current_products = dict()
-
-
 def get_location_input():
     location = input('Please enter the location:\n').strip().upper()
     return location
@@ -42,6 +38,20 @@ def create_new_location_file(location):
     with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow(field_names)
+        return
+
+
+def overwrite_location_file(location, prod_list, *args):
+    prod_in_loc_file = prod_list
+    amount = args[0]
+
+    with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
+        writer = csv.writer(location_file)
+        field_names = ['Product #', 'Product Name', 'Amount']
+        writer.writerow(field_names)
+        for num in prod_in_loc_file.keys():
+            for name, count in prod_in_loc_file[num].items():
+                writer.writerow([f'{num}', f'{name}', f'{amount}'])
         return
 
 
@@ -96,6 +106,9 @@ def back_stock_product():  # Need to read from location file first, then combine
     amount = 0
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
+    if not location_csv.exists():
+        print('File not found.')
+        return
     confirmation = 'N'
     while confirmation[0] != 'Y':
         product_num = get_prod_num_input()
@@ -108,9 +121,7 @@ def back_stock_product():  # Need to read from location file first, then combine
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
             print(f'{product_num} not found.')
-    if not location_csv.exists():
-        print('File not found.')
-        return
+
     update_product_location(True, product_num, location)
     prod_in_loc_file = read_location_file(location)
     if product_num in prod_in_loc_file.keys():
@@ -120,14 +131,7 @@ def back_stock_product():  # Need to read from location file first, then combine
     elif product_num not in prod_in_loc_file.keys():
         prod_in_loc_file[product_num] = {product[0]: amount}
 
-    with open(location_csv, 'w', newline='') as location_file:
-        writer = csv.writer(location_file)
-        field_names = ['Product #', 'Product Name', 'Amount']
-        writer.writerow(field_names)
-        for i in prod_in_loc_file.keys():
-            for name, count in prod_in_loc_file[product_num].items():
-                writer.writerow([f'{i}', f'{name}', f'{amount}'])
-        return
+    overwrite_location_file(location, prod_in_loc_file, amount)
 
 
 def remove_product():
@@ -135,17 +139,20 @@ def remove_product():
     product_num = get_prod_num_input()
     amount = get_amount_input()
     prod_in_loc = read_location_file(location)
+    prod_count = 0
     if product_num in prod_in_loc.keys():
         for name, count in prod_in_loc[product_num].items():
             prod_name = name
             initial_count = int(count)
-            print(prod_name)
-            print(initial_count)
             if amount <= int(initial_count):
                 prod_count = initial_count - amount
-                print(f"Taking: {amount} of {initial_count}")
+                if prod_count <= 0:
+                    update_product_location(False, product_num, location)
+                print(f"Taking: {amount}| {prod_name} of {initial_count}")
             else:
                 print(f'This location contains {initial_count}')
+                return
+    overwrite_location_file(location, prod_in_loc, prod_count)
 
 
 def get_product_amount() -> int:

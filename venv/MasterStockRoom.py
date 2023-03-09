@@ -87,43 +87,6 @@ def create_multiple_locations():
     write_to_stockroom_csv()
 
 
-# def back_stock_product():
-#     """
-#     Prompts user for location and product info.  Adds product to location.
-#
-#     """
-#     location = input('Enter the Back Stock Location:\n').strip().upper()
-#
-#     successful = False
-#     for i in range(0, len(locations)):
-#         if location in locations[i].keys():
-#             product_id = input('Enter the Product ID #:\n').strip().lower().zfill(4)
-#             prod_name = MasterInventory.search_by_prod_num(product_id)[0]
-#             amount = int(input('Enter the Amount to Back Stock:\n'))
-#             locations[i][location].append([product_id, prod_name, amount])
-#             back_stock_product()
-#             print(f'{amount} of {product_id}: {prod_name} are now in {location}.')
-#             successful = True
-#             break
-#         else:
-#             successful = False
-#             continue
-#     if not successful:
-#         print('Location not found.')
-
-
-def audit_location():
-    """
-    Outputs information of all products in the input location, if any.
-    """
-    location = input('Please enter the location:\n')
-    for i in range(0, len(locations)):
-        if location in locations[i].keys():
-            print(f'{location} contains:\n')
-            for prod_id, prod_name, amount in locations[i][location]:
-                print(f'{prod_id}:{prod_name}: Amount: {amount}')
-
-
 def write_to_stockroom_csv():
     # master_stockroom_path = Path(master_stockroom_csv)
     field_names = ['Category', 'Aisle #', 'Column', 'Row #']

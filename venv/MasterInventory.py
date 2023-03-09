@@ -134,10 +134,12 @@ def update_product_location(add_take, product_num, location):
             if add_take:
                 if name_key == '' or name_key == "UNLOCATED":
                     master_inventory[product_num] = {name: f"{location}"}
+                elif location.strip('\n') in name_key.strip('\n'):
+                    return
                 else:
                     master_inventory[product_num] = {name: f"{name_key}\n{location}"}
             elif not add_take:
-                if location in name_key:
+                if location.strip('\n') in name_key:
                     adjusted_key = name_key.replace(location, '')
                     master_inventory[product_num] = {name: adjusted_key.strip('\n')}
 
