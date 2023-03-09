@@ -8,6 +8,10 @@ def main():
     while True:
         commands = input('Enter a command:\n').strip().lower()
         match commands:
+            case 'set cat':
+                set_categories()
+            case 'show cat':
+                print(categories)
             case 'search':
                 search_inventory(input('Enter your search term:\n').strip().upper())
             case 'num s':
