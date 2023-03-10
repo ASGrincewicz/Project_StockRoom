@@ -3,27 +3,23 @@ from pathlib import Path
 import csv
 from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location
 
-"""
-class ProductLocation:
 
-    def __init__(self, category, aisle, column, row):
-        self.location_id = f'{category}-{aisle}-{column}-{row}'
-        self.current_products = dict()
-        print(f'{self.location_id} added.')
-"""
-
-def get_location_input():
+def get_location_input() -> str:
     location = input('Please enter the location:\n').strip().upper()
     return location
 
 
-def get_prod_num_input():
+def get_prod_num_input() -> str:
     prod_num = input('Enter the product number:\n').zfill(4)
     return prod_num
 
 
-def get_amount_input():
-    amount = int(input('Enter the amount:\n'))
+def get_amount_input(take) -> int:
+    amount = 0
+    if take:
+        amount = int(input('Enter the amount to take (To take all enter a negative integer):\n'))
+    elif not take:
+        amount = int(input('Enter the amount to back stock:\n'))
     return amount
 
 
@@ -51,7 +47,8 @@ def overwrite_location_file(location, prod_list, *args):
         writer.writerow(field_names)
         for num in prod_in_loc_file.keys():
             for name, count in prod_in_loc_file[num].items():
-                writer.writerow([f'{num}', f'{name}', f'{amount}'])
+                if int(count) > 0:
+                    writer.writerow([f'{num}', f'{name}', f'{amount}'])
         return
 
 
@@ -100,10 +97,18 @@ def audit_location():
         print(f"{location} does not contain any products.")
 
 
-def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
+def audit_product():
+    # Search all location files for product number
+    # add each location to list
+    #
+    pass
+
+
+def back_stock_product():
+    # Need to read from location file first, then combine amounts if item exists.
     location = get_location_input()
-    product_num = ''
-    amount = 0
+    product_num = get_prod_num_input()
+    amount = get_amount_input(False)
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
     if not location_csv.exists():
@@ -111,11 +116,8 @@ def back_stock_product():  # Need to read from location file first, then combine
         return
     confirmation = 'N'
     while confirmation[0] != 'Y':
-        product_num = get_prod_num_input()
-        amount = get_amount_input()
         num_to_verify = {product_num}
         if not verify_prod_num(num_to_verify):
-            print('Product Found')
             product = search_by_prod_num(product_num)
             print(f'{amount} of {product[0]} will be placed in {location}.')
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
@@ -137,13 +139,15 @@ def back_stock_product():  # Need to read from location file first, then combine
 def remove_product():
     location = get_location_input()
     product_num = get_prod_num_input()
-    amount = get_amount_input()
+    amount = get_amount_input(True)
     prod_in_loc = read_location_file(location)
     prod_count = 0
     if product_num in prod_in_loc.keys():
         for name, count in prod_in_loc[product_num].items():
             prod_name = name
             initial_count = int(count)
+            if amount < 0:
+                amount = initial_count  # remove all
             if amount <= int(initial_count):
                 prod_count = initial_count - amount
                 if prod_count <= 0:

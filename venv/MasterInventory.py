@@ -7,6 +7,7 @@ Contains functions and variables to manage products in inventory.
 import csv
 from Product import Product
 from pathlib import Path
+from colored import fg, bg, attr
 
 master_inventory_file = Path('master_inventory.csv')
 file_contents_read = False
@@ -24,7 +25,6 @@ def verify_prod_num(nums_to_check) -> bool:
         if num.zfill(4) not in master_inventory.keys():
             return True
         else:
-            print(f"{num} found.")
             return False
 
 
@@ -46,7 +46,7 @@ def add_single_product():
     new_prod = Product(prod_name, prod_num, locations)
     if verify_prod_num(new_prod.product_num):
         master_inventory[new_prod.product_num] = {new_prod.product_name.upper(): new_prod.current_locations}
-        print(f'{new_prod.product_name.upper()} added.')
+        print(f'{fg(6)}{attr(1)}{new_prod.product_name.upper()} added.{attr(0)}')
 
 
 def add_multi_product_from_file(products_to_add):
