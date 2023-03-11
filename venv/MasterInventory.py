@@ -5,9 +5,11 @@ Contains functions and variables to manage products in inventory.
 """
 
 import csv
+import Colorize
+import Messages as MSG
 from Product import Product
 from pathlib import Path
-from colored import fg, bg, attr
+
 
 master_inventory_file = Path('master_inventory.csv')
 file_contents_read = False
@@ -32,12 +34,12 @@ def add_single_product():
     """
     Adds a new product to the master inventory dictionary.
     """
-    prod_name = input('Enter the product name:\n').strip().upper()
-    prod_num_input = input('Enter the product number:\n').strip().lower()
+    prod_name = MSG.get_prod_name_input()
+    prod_num_input = MSG.get_prod_num_input()
     # prod_num = ''
     nums_to_verify = {prod_num_input}
     while not verify_prod_num(nums_to_verify):
-        prod_num_input = input('Enter the product number:\n').strip().lower()
+        prod_num_input = MSG.get_prod_num_input()
     else:
         prod_num = prod_num_input
 
@@ -46,7 +48,7 @@ def add_single_product():
     new_prod = Product(prod_name, prod_num, locations)
     if verify_prod_num(new_prod.product_num):
         master_inventory[new_prod.product_num] = {new_prod.product_name.upper(): new_prod.current_locations}
-        print(f'{fg(6)}{attr(1)}{new_prod.product_name.upper()} added.{attr(0)}')
+        print(Colorize.colorize_text_green(f'{new_prod.product_name.upper()} added.'))
 
 
 def add_multi_product_from_file(products_to_add):
@@ -77,10 +79,11 @@ def search_inventory(search_term):
     for num, name in master_inventory.items():
         for prod_name in master_inventory[num].keys():
             if search_term in prod_name:
-                print(
-                    f'+ {prod_name.upper()} | Item Number: {num} \nLocations:\n{master_inventory[num][prod_name]}')
+                print(Colorize.colorize_text_orange(f'+ {prod_name.upper()} | Item Number: {num} \nLocations:\n') +
+                      Colorize.colorize_location_status(f'{master_inventory[num][prod_name]}'))
                 print("---------------------------------------------------")
                 results += 1
+
     print(f'Search Results: {results}')
     print("___________________________________________________")
     if not file_contents_read and results == 0:
@@ -98,8 +101,26 @@ def search_by_prod_num(product_num):
         for name, locations in master_inventory[product_num].items():
             return name, locations
     else:
-        print('Item not found.')
+        print(MSG.product_not_found())
         return None
+
+
+def find_unlocated():
+    results = 0
+    print("RESULTS:")
+    print("___________________________________________________")
+    for num, name in master_inventory.items():
+        for prod_name, loc in master_inventory[num].items():
+            if 'UNLOCATED' in loc:
+                print(Colorize.colorize_text_orange(f'+ {prod_name.upper()} | Item Number: {num} \nLocations:\n') +
+                      Colorize.colorize_location_status(f'{master_inventory[num][prod_name]}'))
+                print("---------------------------------------------------")
+                results += 1
+
+    print(f'Search Results: {results}')
+    print("___________________________________________________")
+    if not file_contents_read and results == 0:
+        print('Try your search again after importing the contents of the Master Inventory file')
 
 
 def sort_inventory_by_prod_num() -> list:
@@ -115,15 +136,15 @@ def edit_product():
     Allows user to edit product name and on hand count after searching by product number.
 
     """
-    product_num = input('Please enter the Product number of the item you want to edit.\n').strip().zfill(4)
+    product_num = MSG.get_prod_num_input()
     if product_num in master_inventory.keys():
         for name in master_inventory[product_num].keys():
             locations = master_inventory[product_num][name]
-            new_prod_name = input('What is the new Product name?\n').strip().upper()
+            new_prod_name = MSG.get_prod_name_input()
             # new_on_hand = int(input('How many are On Hand?\n').strip().lower())
             master_inventory.update({product_num: {new_prod_name: locations}})
     else:
-        print('Product not found. Have you imported the Master Inventory?')
+        print(MSG.product_not_found())
 
 
 def update_product_location(add_take, product_num, location):
@@ -145,7 +166,7 @@ def update_product_location(add_take, product_num, location):
 
 
 def delete_product():
-    product_num = input('Please enter the Product number of the item you want to edit.\n').strip().zfill(4)
+    product_num = MSG.get_prod_num_input()
     search_by_prod_num(product_num)
     print("Confirm deletion? Enter 'Y' for Yes, 'N' for No:\n")
     confirm = input().strip().upper()
@@ -156,7 +177,7 @@ def delete_product():
     if verify_prod_num(product_num):
         print(f"Product number {product_num} has been deleted.")
     else:
-        print(f"An error occurred.")
+        print(Colorize.colorize_text_red("An error occurred."))
 
 
 def edit_loc_string(to_edit) -> str:
@@ -198,7 +219,7 @@ def read_from_master_inventory_csv():
         file_contents_read = True
         add_multi_product_from_file(products_to_add)
     else:
-        print('File Not Found.')
+        print(MSG.file_not_found())
 
 
 def write_to_master_inventory_csv():
