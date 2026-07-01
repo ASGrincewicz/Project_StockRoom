@@ -1,20 +1,9 @@
 # Aaron Grincewicz 02/19/2023
 from pathlib import Path
 import csv
-from MasterInventory import search_by_prod_num, verify_prod_num
-
-"""
-class ProductLocation:
-
-    def __init__(self, category, aisle, column, row):
-        self.location_id = f'{category}-{aisle}-{column}-{row}'
-        self.current_products = dict()
-        print(f'{self.location_id} added.')
-"""
-
-
-file_contents_read = False
-current_products = dict()
+from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location
+import Colorize
+import Messages as MSG
 
 
 def create_new_location_file(location):
@@ -23,15 +12,34 @@ def create_new_location_file(location):
     field_names = ['Product #', 'Product Name', 'Amount']
 
     if location_csv.exists():
-        print('File already exists.')
+        print(MSG.file_exist())
         return
     with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
         writer.writerow(field_names)
+        return
 
 
-def read_location_file(location):
-    current_products.clear()
+def overwrite_location_file(location, prod_list, *args):
+    prod_in_loc_file = prod_list
+    amount = args[0]
+    product_num = args[1]
+
+    with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
+        writer = csv.writer(location_file)
+        field_names = ['Product #', 'Product Name', 'Amount']
+        writer.writerow(field_names)
+        for num in prod_in_loc_file.keys():
+            for name, count in prod_in_loc_file[num].items():
+                if int(count) > 0 and product_num == num:
+                    writer.writerow([f'{num}', f'{name}', f'{amount}'])
+                else:
+                    writer.writerow([f'{num}', f'{name}', f'{count}'])
+        return
+
+
+def read_location_file(location) -> dict:
+    products_in_loc_file = dict()
 
     product_num = list()
     product_name = list()
@@ -49,66 +57,102 @@ def read_location_file(location):
 
         i = 0
         for item in product_num:
-            if item not in current_products.keys():
-                current_products[item] = {product_name[i]: amount_in_loc[i]}
-            elif item in current_products.keys():
-                current_amount = current_products[item][product_name[i]]
-                current_products[item] = {product_name[i]: int(amount_in_loc[i]) + int(current_amount)}
+            if item not in products_in_loc_file.keys():
+                products_in_loc_file[item] = {product_name[i]: amount_in_loc[i]}
+            elif item in products_in_loc_file.keys():
+                current_amount = products_in_loc_file[item][product_name[i]]
+                products_in_loc_file[item] = {product_name[i]: int(amount_in_loc[i]) + int(current_amount)}
             i += 1
-
+        return products_in_loc_file
     else:
-        print('File not found.')
+        print(MSG.file_not_found())
+        return dict()
 
 
 def audit_location():
-    location = input('Please enter the location:\n')
-    read_location_file(location)
-    if len(current_products) > 0:
-        for num in current_products.keys():
-            for prod, amount in current_products[num].items():
-                print(f'{num}: {prod}: Amount here: {amount}')
+    location = MSG.get_location_input()
+    prod_in_loc = read_location_file(location)
+    product_count = 0
+    if len(prod_in_loc) > 0:
+        for num in prod_in_loc.keys():
+            for prod, amount in prod_in_loc[num].items():
+                print(Colorize.colorize_text_orange(f'{num}: {prod}: Amount here: {amount}'))
+                product_count = product_count + int(amount)
+        print(f"Total Located Here: {product_count}")
     else:
-        print(f"{location} does not contain any products.")
+        print(MSG.location_empty())
 
 
-def back_stock_product():  # Need to read from location file first, then combine amounts if item exists.
-    location = input('Enter the location:\n')
-    product_num = ''
-    amount = 0
+def audit_product():
+    # Search all location files for product number
+    # add each location to list
+    #
+    pass
+
+
+def back_stock_product():
+    # Need to read from location file first, then combine amounts if item exists.
+    location = MSG.get_location_input()
+    product_num = MSG.get_prod_num_input()
+    amount = MSG.get_amount_input(False)
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
+    if not location_csv.exists():
+        print(MSG.file_not_found())
+        return
     confirmation = 'N'
     while confirmation[0] != 'Y':
-        product_num = input('Enter the product number:\n').zfill(4)
-        amount = input('Enter the amount to back stock:\n')
         num_to_verify = {product_num}
         if not verify_prod_num(num_to_verify):
-            print('Product Found')
             product = search_by_prod_num(product_num)
-            print(f'{amount} of {product[0]} will be placed in {location}.')
+            print(Colorize.colorize_text_blue(f'{amount} of {product[0]} will be placed in {location}.'))
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
-            print(f'{product_num} not found.')
-    if not location_csv.exists():
-        print('File not found.')
-        return
-    with open(location_csv, 'a', newline='') as location_file:
-        writer = csv.writer(location_file)
-        writer.writerow([f'{product_num}', f'{product[0]}', f'{amount}'])
+            print(MSG.product_not_found())
+
+    update_product_location(True, product_num, location)
+    prod_in_loc_file = read_location_file(location)
+    if product_num in prod_in_loc_file.keys():
+        for name, count in prod_in_loc_file[product_num].items():
+            amount += int(count)
+            prod_in_loc_file[product_num] = {name: amount}
+    elif product_num not in prod_in_loc_file.keys():
+        prod_in_loc_file[product_num] = {product[0]: amount}
+
+    overwrite_location_file(location, prod_in_loc_file, amount, product_num)
 
 
-def remove_product(product_num, amount):
-    if product_num in current_products:
-        count = current_products[product_num]
-        if amount <= count:
-            count -= amount
-        else:
-            print(f'This location contains {count}')
+def remove_product():
+    location = MSG.get_location_input()
+    product_num = MSG.get_prod_num_input()
+    amount = MSG.get_amount_input(True)
+    prod_in_loc = read_location_file(location)
+    prod_count = 0
+    if product_num in prod_in_loc.keys():
+        for name, count in prod_in_loc[product_num].items():
+            prod_name = name
+            initial_count = int(count)
+            print(amount)
+            if amount < 0:
+                amount = initial_count  # remove all
+            if amount <= int(initial_count):
+                prod_count = initial_count - amount
+                if prod_count <= 0:
+                    update_product_location(False, product_num, location)
+                print(Colorize.colorize_text_blue(f"Taking: {amount}| {prod_name} of {initial_count}"))
+            else:
+                print(f'This location contains {initial_count}')
+                return
+
+    overwrite_location_file(location, prod_in_loc, prod_count, product_num)
 
 
-def get_product_amount(product_num) -> int:
-    if product_num in current_products:
-        return current_products[product_num]
+def get_product_amount() -> int:
+    location = MSG.get_location_input()
+    prod_in_loc = read_location_file(location)
+    product_num = MSG.get_prod_num_input()
+    if product_num in prod_in_loc:
+        return prod_in_loc[product_num]
     else:
-        print('This product is not here.')
+        print(MSG.product_not_found())
         return 0
