@@ -4,7 +4,8 @@
 Contains functions to manage stockroom locations and the products they contain.
 """
 from ProductLocation import *
-import MasterInventory
+import Colorize
+import Messages as MSG
 import csv
 from pathlib import Path
 
@@ -38,18 +39,18 @@ def create_new_location():
 
     """
 
-    category = input('Please enter the category:\n').strip().upper()
-    aisle = input('Please enter the aisle #:\n').strip().zfill(2)
-    column = input('Please enter a single letter for the column:\n').strip().upper()
-    row = input('Please enter the Row #:\n').strip().zfill(2)
+    category = MSG.get_category_input()
+    aisle = MSG.get_aisle_input()
+    column = MSG.get_column_input()
+    row = MSG.get_row_input()
     if category not in categories:
-        print(f'{category} does not exist.')
+        print(MSG.category_not_found())
     else:
         for i in categories:
             if category == i:
                 locations.append(f'{category}-{aisle}-{column}-{row}')
                 create_new_location_file(f'{category}-{aisle}-{column}-{row}')
-                print(f'Location: {category}-{aisle}-{column}-{row} has been created.')
+                print(Colorize.colorize_text_green(f'Location: {category}-{aisle}-{column}-{row} has been created.'))
     write_to_stockroom_csv()
 
 
@@ -58,14 +59,13 @@ def create_multiple_locations():
     Prompts user for range of columns and rows to create locations within range.
     :return:
     """
-    category = input('Please enter the category:\n').strip().upper()
-    aisle = input('Please enter the aisle #:\n').strip().zfill(2)
-    column_range_start = input('Please enter a single letter for the starting column:\n').strip().upper()
-    column_range_end = input('Please enter a single letter for the ending column:\n').strip().upper()
-    row_range_start = int(input('Enter the starting row number:\n'))
-    row_range_end = int(input('Enter the ending row number:\n'))
+    category = MSG.get_category_input()
+    aisle = MSG.get_aisle_input()
+    column_range_start, column_range_end = MSG.get_column_range_input()
+    row_range_start, row_range_end = MSG.get_row_range_input()
+
     if category not in categories:
-        print(f'{category} does not exist.')
+        print(MSG.category_not_found())
     else:
         for c in range(ord(column_range_start), ord(column_range_end) + 1):
             for i in range(row_range_start, row_range_end + 1):
@@ -76,7 +76,7 @@ def create_multiple_locations():
                     create_new_location_file(formatted_loc)
                 else:
                     continue
-                print(f'Location: {category}-{aisle}-{chr(c)}-{i} has been created.')
+                print(Colorize.colorize_text_green(f'Location: {category}-{aisle}-{chr(c)}-{i} has been created.'))
     write_to_stockroom_csv()
 
 
@@ -130,4 +130,4 @@ def read_from_stock_room_csv():
             if cat not in categories:
                 categories.append(cat)
     else:
-        print('File Not Found.')
+        print(MSG.file_not_found())

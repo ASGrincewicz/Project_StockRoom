@@ -2,25 +2,8 @@
 from pathlib import Path
 import csv
 from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location
-
-
-def get_location_input() -> str:
-    location = input('Please enter the location:\n').strip().upper()
-    return location
-
-
-def get_prod_num_input() -> str:
-    prod_num = input('Enter the product number:\n').zfill(4)
-    return prod_num
-
-
-def get_amount_input(take) -> int:
-    amount = 0
-    if take:
-        amount = int(input('Enter the amount to take (To take all enter a negative integer):\n'))
-    elif not take:
-        amount = int(input('Enter the amount to back stock:\n'))
-    return amount
+import Colorize
+import Messages as MSG
 
 
 def create_new_location_file(location):
@@ -29,7 +12,7 @@ def create_new_location_file(location):
     field_names = ['Product #', 'Product Name', 'Amount']
 
     if location_csv.exists():
-        print('File already exists.')
+        print(MSG.file_exist())
         return
     with open(location_csv, 'w', newline='') as location_file:
         writer = csv.writer(location_file)
@@ -40,6 +23,7 @@ def create_new_location_file(location):
 def overwrite_location_file(location, prod_list, *args):
     prod_in_loc_file = prod_list
     amount = args[0]
+    product_num = args[1]
 
     with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
         writer = csv.writer(location_file)
@@ -47,8 +31,10 @@ def overwrite_location_file(location, prod_list, *args):
         writer.writerow(field_names)
         for num in prod_in_loc_file.keys():
             for name, count in prod_in_loc_file[num].items():
-                if int(count) > 0:
+                if int(count) > 0 and product_num == num:
                     writer.writerow([f'{num}', f'{name}', f'{amount}'])
+                else:
+                    writer.writerow([f'{num}', f'{name}', f'{count}'])
         return
 
 
@@ -79,22 +65,22 @@ def read_location_file(location) -> dict:
             i += 1
         return products_in_loc_file
     else:
-        print('File not found.')
+        print(MSG.file_not_found())
         return dict()
 
 
 def audit_location():
-    location = get_location_input()
+    location = MSG.get_location_input()
     prod_in_loc = read_location_file(location)
     product_count = 0
     if len(prod_in_loc) > 0:
         for num in prod_in_loc.keys():
             for prod, amount in prod_in_loc[num].items():
-                print(f'{num}: {prod}: Amount here: {amount}')
+                print(Colorize.colorize_text_orange(f'{num}: {prod}: Amount here: {amount}'))
                 product_count = product_count + int(amount)
         print(f"Total Located Here: {product_count}")
     else:
-        print(f"{location} does not contain any products.")
+        print(MSG.location_empty())
 
 
 def audit_product():
@@ -106,23 +92,23 @@ def audit_product():
 
 def back_stock_product():
     # Need to read from location file first, then combine amounts if item exists.
-    location = get_location_input()
-    product_num = get_prod_num_input()
-    amount = get_amount_input(False)
+    location = MSG.get_location_input()
+    product_num = MSG.get_prod_num_input()
+    amount = MSG.get_amount_input(False)
     product = None
     location_csv = Path(f'StockroomLocations/{location}.csv')
     if not location_csv.exists():
-        print('File not found.')
+        print(MSG.file_not_found())
         return
     confirmation = 'N'
     while confirmation[0] != 'Y':
         num_to_verify = {product_num}
         if not verify_prod_num(num_to_verify):
             product = search_by_prod_num(product_num)
-            print(f'{amount} of {product[0]} will be placed in {location}.')
+            print(Colorize.colorize_text_blue(f'{amount} of {product[0]} will be placed in {location}.'))
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
-            print(f'{product_num} not found.')
+            print(MSG.product_not_found())
 
     update_product_location(True, product_num, location)
     prod_in_loc_file = read_location_file(location)
@@ -133,38 +119,40 @@ def back_stock_product():
     elif product_num not in prod_in_loc_file.keys():
         prod_in_loc_file[product_num] = {product[0]: amount}
 
-    overwrite_location_file(location, prod_in_loc_file, amount)
+    overwrite_location_file(location, prod_in_loc_file, amount, product_num)
 
 
 def remove_product():
-    location = get_location_input()
-    product_num = get_prod_num_input()
-    amount = get_amount_input(True)
+    location = MSG.get_location_input()
+    product_num = MSG.get_prod_num_input()
+    amount = MSG.get_amount_input(True)
     prod_in_loc = read_location_file(location)
     prod_count = 0
     if product_num in prod_in_loc.keys():
         for name, count in prod_in_loc[product_num].items():
             prod_name = name
             initial_count = int(count)
+            print(amount)
             if amount < 0:
                 amount = initial_count  # remove all
             if amount <= int(initial_count):
                 prod_count = initial_count - amount
                 if prod_count <= 0:
                     update_product_location(False, product_num, location)
-                print(f"Taking: {amount}| {prod_name} of {initial_count}")
+                print(Colorize.colorize_text_blue(f"Taking: {amount}| {prod_name} of {initial_count}"))
             else:
                 print(f'This location contains {initial_count}')
                 return
-    overwrite_location_file(location, prod_in_loc, prod_count)
+
+    overwrite_location_file(location, prod_in_loc, prod_count, product_num)
 
 
 def get_product_amount() -> int:
-    location = get_location_input()
+    location = MSG.get_location_input()
     prod_in_loc = read_location_file(location)
-    product_num = get_prod_num_input()
+    product_num = MSG.get_prod_num_input()
     if product_num in prod_in_loc:
         return prod_in_loc[product_num]
     else:
-        print('This product is not here.')
+        print(MSG.product_not_found())
         return 0
