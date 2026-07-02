@@ -1,21 +1,6 @@
 # Aaron Grincewicz — 02/19/2023
 """
-Location-Level Inventory Module
-
-This module manages inventory stored within individual stockroom location files.
-Each location has its own CSV file stored under:
-    StockroomLocations/<LOCATION>.csv
-
-Features:
-- Create new location inventory files
-- Read and merge product quantities within a location
-- Backstock (add) products to a location
-- Remove products from a location
-- Audit location contents
-- Synchronize changes with the MasterInventory module
-
-CSV Format (per location):
-Product # | Product Name | Amount
+Crash‑proof Location-Level Inventory Module
 """
 
 from pathlib import Path
@@ -26,123 +11,111 @@ import Messages as MSG
 
 
 def create_new_location_file(location):
-    """
-    Create a new CSV file for a stockroom location.
-
-    :param location: Location identifier string (e.g., 'LD-01-A-03')
-    """
     location_csv = Path(f'StockroomLocations/{location}.csv')
     field_names = ['Product #', 'Product Name', 'Amount']
 
-    if location_csv.exists():
-        print(MSG.file_exist())
-        return
+    try:
+        if location_csv.exists():
+            print(MSG.file_exist())
+            return
 
-    with open(location_csv, 'w', newline='') as location_file:
-        writer = csv.writer(location_file)
-        writer.writerow(field_names)
+        with open(location_csv, 'w', newline='') as location_file:
+            writer = csv.writer(location_file)
+            writer.writerow(field_names)
+
+    except Exception:
+        print("Error creating location file.")
 
 
-def overwrite_location_file(location, prod_list, *args):
-    """
-    Overwrite the location CSV file with updated product quantities.
+def overwrite_location_file(location, prod_list, amount, product_num):
+    try:
+        with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
+            writer = csv.writer(location_file)
+            writer.writerow(['Product #', 'Product Name', 'Amount'])
 
-    :param location: Location identifier
-    :param prod_list: Dictionary of products stored in the location
-    :param args: amount, product_num — used to update a specific product
-    """
-    amount = args[0]
-    product_num = args[1]
+            for num in prod_list.keys():
+                for name, count in prod_list[num].items():
+                    try:
+                        count = int(count)
+                    except ValueError:
+                        print(f"Invalid count in CSV for {num}. Skipping.")
+                        continue
 
-    with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
-        writer = csv.writer(location_file)
-        field_names = ['Product #', 'Product Name', 'Amount']
-        writer.writerow(field_names)
+                    if num == product_num:
+                        writer.writerow([num, name, amount])
+                    else:
+                        writer.writerow([num, name, count])
 
-        for num in prod_list.keys():
-            for name, count in prod_list[num].items():
-                # Update only the targeted product
-                if int(count) > 0 and product_num == num:
-                    writer.writerow([num, name, amount])
-                else:
-                    writer.writerow([num, name, count])
+    except Exception:
+        print("Error writing to location file.")
 
 
 def read_location_file(location) -> dict:
-    """
-    Read all products stored in a location CSV file.
-
-    :param location: Location identifier
-    :return: Dictionary mapping product numbers to {name: amount}
-    """
-    products_in_loc_file = dict()
+    products_in_loc_file = {}
     location_csv = Path(f'StockroomLocations/{location}.csv')
 
     if not location_csv.exists():
         print(MSG.file_not_found())
         return {}
 
-    product_num = []
-    product_name = []
-    amount_in_loc = []
+    try:
+        with open(location_csv, 'r', newline='') as location_file:
+            reader = csv.DictReader(location_file)
 
-    with open(location_csv, 'r', newline='') as location_file:
-        reader = csv.DictReader(location_file)
+            for col in reader:
+                num = col.get('Product #', '').strip()
+                name = col.get('Product Name', '').strip()
+                amt = col.get('Amount', '').strip()
 
-        for col in reader:
-            product_num.append(col['Product #'])
-            product_name.append(col['Product Name'])
-            amount_in_loc.append(col['Amount'])
+                if not num or not name:
+                    print("Malformed CSV row. Skipping.")
+                    continue
 
-    # Merge duplicate product entries
-    for i, num in enumerate(product_num):
-        if num not in products_in_loc_file:
-            products_in_loc_file[num] = {product_name[i]: amount_in_loc[i]}
-        else:
-            current_amount = products_in_loc_file[num][product_name[i]]
-            products_in_loc_file[num] = {
-                product_name[i]: int(amount_in_loc[i]) + int(current_amount)
-            }
+                try:
+                    amt_int = int(amt)
+                except ValueError:
+                    print(f"Invalid amount '{amt}' in CSV. Using 0.")
+                    amt_int = 0
+
+                if num not in products_in_loc_file:
+                    products_in_loc_file[num] = {name: amt_int}
+                else:
+                    current = list(products_in_loc_file[num].values())[0]
+                    products_in_loc_file[num] = {name: current + amt_int}
+
+    except Exception:
+        print("Error reading location file.")
+        return {}
 
     return products_in_loc_file
 
 
 def audit_location():
-    """
-    Print all products stored in a location and the total quantity.
-    """
     location = MSG.get_location_input()
     prod_in_loc = read_location_file(location)
-    product_count = 0
 
-    if len(prod_in_loc) > 0:
-        for num in prod_in_loc.keys():
-            for prod, amount in prod_in_loc[num].items():
-                print(Colorize.colorize_text_orange(f'{num}: {prod}: Amount here: {amount}'))
-                product_count += int(amount)
-
-        print(f"Total Located Here: {product_count}")
-    else:
+    if not prod_in_loc:
         print(MSG.location_empty())
+        return
+
+    total = 0
+
+    for num, name_dict in prod_in_loc.items():
+        for prod, amount in name_dict.items():
+            print(Colorize.colorize_text_orange(f'{num}: {prod}: Amount here: {amount}'))
+            try:
+                total += int(amount)
+            except ValueError:
+                print(f"Invalid amount '{amount}' in CSV.")
+
+    print(f"Total Located Here: {total}")
 
 
 def audit_product():
-    """
-    TODO: Search all location files for a specific product number.
-    """
-    pass
+    print("Audit Product feature not implemented yet.")
 
 
 def back_stock_product():
-    """
-    Add product quantity to a location.
-
-    Workflow:
-    - Verify product exists in MasterInventory
-    - Confirm placement
-    - Update MasterInventory location mapping
-    - Merge quantities in location file
-    """
     location = MSG.get_location_input()
     product_num = MSG.get_prod_num_input()
     amount = MSG.get_amount_input(False)
@@ -155,25 +128,30 @@ def back_stock_product():
     confirmation = 'N'
     product = None
 
-    while confirmation[0] != 'Y':
-        num_to_verify = {product_num}
-
-        if not verify_prod_num(num_to_verify):
+    while confirmation != 'Y':
+        if not verify_prod_num({product_num}):
             product = search_by_prod_num(product_num)
+            if not product:
+                print(MSG.product_not_found())
+                return
+
             print(Colorize.colorize_text_blue(f'{amount} of {product[0]} will be placed in {location}.'))
             confirmation = input('Confirm? Enter Y or N\n').strip().upper()
         else:
             print(MSG.product_not_found())
+            return
 
     update_product_location(True, product_num, location)
 
     prod_in_loc_file = read_location_file(location)
 
-    # Merge or add new product
     if product_num in prod_in_loc_file:
-        for name, count in prod_in_loc_file[product_num].items():
+        name, count = list(prod_in_loc_file[product_num].items())[0]
+        try:
             amount += int(count)
-            prod_in_loc_file[product_num] = {name: amount}
+        except ValueError:
+            print("Invalid count in CSV. Using only new amount.")
+        prod_in_loc_file[product_num] = {name: amount}
     else:
         prod_in_loc_file[product_num] = {product[0]: amount}
 
@@ -181,52 +159,54 @@ def back_stock_product():
 
 
 def remove_product():
-    """
-    Remove product quantity from a location.
-
-    If amount < 0, remove all.
-    If resulting quantity <= 0, update MasterInventory to remove location mapping.
-    """
     location = MSG.get_location_input()
     product_num = MSG.get_prod_num_input()
     amount = MSG.get_amount_input(True)
 
     prod_in_loc = read_location_file(location)
-    prod_count = 0
 
-    if product_num in prod_in_loc:
-        for name, count in prod_in_loc[product_num].items():
-            initial_count = int(count)
+    if product_num not in prod_in_loc:
+        print(MSG.product_not_found())
+        return
 
-            if amount < 0:
-                amount = initial_count  # remove all
+    name, count = list(prod_in_loc[product_num].items())[0]
 
-            if amount <= initial_count:
-                prod_count = initial_count - amount
+    try:
+        initial_count = int(count)
+    except ValueError:
+        print("Invalid count in CSV. Cannot remove.")
+        return
 
-                if prod_count <= 0:
-                    update_product_location(False, product_num, location)
+    if amount < 0:
+        amount = initial_count
 
-                print(Colorize.colorize_text_blue(f"Taking: {amount} | {name} of {initial_count}"))
-            else:
-                print(f'This location contains {initial_count}')
-                return
+    if amount > initial_count:
+        print(f'This location contains only {initial_count}.')
+        return
 
-    overwrite_location_file(location, prod_in_loc, prod_count, product_num)
+    new_count = initial_count - amount
+
+    if new_count <= 0:
+        update_product_location(False, product_num, location)
+
+    print(Colorize.colorize_text_blue(f"Taking: {amount} | {name} of {initial_count}"))
+
+    prod_in_loc[product_num] = {name: new_count}
+
+    overwrite_location_file(location, prod_in_loc, new_count, product_num)
 
 
 def get_product_amount() -> int:
-    """
-    Return the quantity of a product stored in a location.
-
-    :return: Amount or 0 if not found.
-    """
     location = MSG.get_location_input()
     prod_in_loc = read_location_file(location)
     product_num = MSG.get_prod_num_input()
 
     if product_num in prod_in_loc:
-        return prod_in_loc[product_num]
+        try:
+            return int(list(prod_in_loc[product_num].values())[0])
+        except ValueError:
+            print("Invalid amount in CSV.")
+            return 0
 
     print(MSG.product_not_found())
     return 0

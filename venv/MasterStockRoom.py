@@ -1,179 +1,174 @@
-# Aaron Grincewicz — 02/24/2023
-# Master StockRoom Module
+# Aaron Grincewicz — 02/19/2023
 """
-Master Stockroom Module
+Crash‑proof Master StockRoom Module
 
-This module manages stockroom locations and the categories they belong to.
-It supports:
-- Creating single or multiple stockroom locations
-- Managing category definitions (custom or default)
-- Reading/writing location data to a CSV file
-- Ensuring consistent formatting for location identifiers
-
-Data Model:
-locations = [
-    "LD-01-A-03",
-    "HD-02-C-12",
-    ...
-]
-
-categories = ["LD", "HD", "G"] or user-defined values.
-
-CSV Format:
-Category | Aisle # | Column | Row #
+Manages:
+- Categories
+- Location creation (single + multi)
+- Reading/writing Stockroom CSV
 """
 
-from ProductLocation import *
-import Colorize
-import Messages as MSG
 import csv
 from pathlib import Path
+import Messages as MSG
+import Colorize
 
-master_stockroom_csv = Path('master_stockroom_location.csv')
+master_stockroom_file = Path("master_stockroom_location.csv")
 
-# State flag indicating whether CSV contents have been loaded
-file_contents_read = False
-
-# Main data structures
-locations = list()
-categories = list()
+categories = []
 
 
-def set_categories():
+# -----------------------------
+# Crash‑proof CSV read/write
+# -----------------------------
+
+def read_from_stock_room_csv():
     """
-    Configure the category list used for stockroom locations.
-
-    Allows the user to define custom categories or fall back to defaults.
+    Safely read categories from master_stockroom.csv.
     """
     global categories
 
-    user_choice = input("Enter 'Y' to create categories, or 'N' to use defaults.\n").strip().upper()
+    if not master_stockroom_file.exists():
+        print(MSG.file_not_found())
+        return
 
-    if user_choice == 'Y':
-        new_categories = []
-        number_of_categories = int(input("How many categories would you like to create?\n").strip())
+    try:
+        with open(master_stockroom_file, "r", newline="") as f:
+            reader = csv.DictReader(f)
 
-        for i in range(1, number_of_categories + 1):
-            category = input(f"Category {i}: Enter an abbreviation (e.g., LD for Light Duty).\n").strip().upper()
-            new_categories.append(category)
+            categories = []
+            for row in reader:
+                cat = row.get("Category", "").strip()
+                if cat:
+                    categories.append(cat)
+                else:
+                    print("Malformed CSV row. Skipping.")
 
-        categories = new_categories
-    else:
-        categories = ['LD', 'HD', 'G']
+        print(Colorize.colorize_text_blue("Stockroom categories imported."))
 
+    except Exception:
+        print("Error reading Stockroom CSV.")
+
+
+def write_to_stock_room_csv():
+    """
+    Safely write categories to master_stockroom.csv.
+    """
+    try:
+        with open(master_stockroom_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Category"])
+
+            for cat in categories:
+                writer.writerow([cat])
+
+        print(Colorize.colorize_text_blue("Stockroom categories saved."))
+
+    except Exception:
+        print("Error writing Stockroom CSV.")
+
+
+# -----------------------------
+# Category Management
+# -----------------------------
+
+def set_categories():
+    """
+    Safely set categories (overwrites existing list).
+    """
+    global categories
+
+    print(Colorize.colorize_text_blue("Enter categories. Type DONE when finished."))
+
+    new_categories = []
+
+    while True:
+        cat = input("Category:\n").strip().upper()
+        if cat == "DONE":
+            break
+        if not cat:
+            print(MSG.invalid_input("Category cannot be empty."))
+            continue
+        new_categories.append(cat)
+
+    categories = new_categories
+    write_to_stock_room_csv()
+
+
+# -----------------------------
+# Location Creation
+# -----------------------------
 
 def create_new_location():
     """
-    Create a single stockroom location based on user input.
-
-    Location format: CATEGORY-AISLE-COLUMN-ROW
-    Example: LD-01-A-03
-
-    Also creates a corresponding location file and writes the updated list to CSV.
+    Create a single location file safely.
     """
-    category = MSG.get_category_input()
-    aisle = MSG.get_aisle_input()
-    column = MSG.get_column_input()
-    row = MSG.get_row_input()
+    loc = MSG.get_location_input()
+    loc_path = Path(f"StockroomLocations/{loc}.csv")
 
-    if category not in categories:
-        print(MSG.category_not_found())
-        return
+    try:
+        loc_path.parent.mkdir(exist_ok=True)
 
-    formatted_loc = f'{category}-{aisle}-{column}-{row}'
-    locations.append(formatted_loc)
+        if loc_path.exists():
+            print(MSG.file_exist())
+            return
 
-    create_new_location_file(formatted_loc)
-    print(Colorize.colorize_text_green(f'Location {formatted_loc} has been created.'))
+        with open(loc_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Product #", "Product Name", "Amount"])
 
-    write_to_stockroom_csv()
+        print(Colorize.colorize_text_blue(f"Location {loc} created."))
+
+    except Exception:
+        print("Error creating location.")
 
 
 def create_multiple_locations():
     """
-    Create multiple stockroom locations based on column and row ranges.
-
-    Useful for generating large batches of locations quickly.
+    Create multiple locations in a numeric range.
+    Example: LD-01-A-01 through LD-01-A-10
     """
-    category = MSG.get_category_input()
-    aisle = MSG.get_aisle_input()
-    column_range_start, column_range_end = MSG.get_column_range_input()
-    row_range_start, row_range_end = MSG.get_row_range_input()
-
-    if category not in categories:
-        print(MSG.category_not_found())
+    base = input("Enter base location prefix (e.g., LD-01-A-):\n").strip().upper()
+    if not base:
+        print(MSG.invalid_input("Base prefix cannot be empty."))
         return
 
-    for c in range(ord(column_range_start), ord(column_range_end) + 1):
-        for r in range(row_range_start, row_range_end + 1):
-            row_str = f'{r}'.zfill(2)
-            formatted_loc = f'{category}-{aisle}-{chr(c)}-{row_str}'
+    start, end = MSG.get_range_input()
 
-            if formatted_loc not in locations:
-                locations.append(formatted_loc)
-                create_new_location_file(formatted_loc)
+    try:
+        for i in range(start, end + 1):
+            loc = f"{base}{str(i).zfill(2)}"
+            loc_path = Path(f"StockroomLocations/{loc}.csv")
+            loc_path.parent.mkdir(exist_ok=True)
 
-            print(Colorize.colorize_text_green(f'Location {formatted_loc} has been created.'))
+            if loc_path.exists():
+                print(Colorize.colorize_text_orange(f"{loc} already exists. Skipping."))
+                continue
 
-    write_to_stockroom_csv()
+            with open(loc_path, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Product #", "Product Name", "Amount"])
+
+            print(Colorize.colorize_text_blue(f"Created: {loc}"))
+
+    except Exception:
+        print("Error creating multiple locations.")
 
 
-def write_to_stockroom_csv():
+# -----------------------------
+# Utility
+# -----------------------------
+
+def show_categories():
     """
-    Write all stockroom locations to master_stockroom_location.csv.
-
-    Overwrites the file if it was previously read or does not exist.
+    Display categories safely.
     """
-    field_names = ['Category', 'Aisle #', 'Column', 'Row #']
-    write_mode = 'w'  # Always overwrite for consistency
-
-    with open(master_stockroom_csv, write_mode, newline='') as master_file:
-        print(f'File open with Write Mode: {write_mode}')
-        writer = csv.writer(master_file)
-
-        writer.writerow(field_names)
-
-        for location in locations:
-            category, aisle, column, row = location.split('-', 3)
-            writer.writerow([category, aisle, column, row])
-
-    print('Writing to file completed.')
-
-
-def read_from_stock_room_csv():
-    """
-    Read stockroom location data from master_stockroom_location.csv.
-
-    Populates the locations list and updates the categories list if new categories are found.
-    """
-    global file_contents_read
-    global categories
-
-    if not master_stockroom_csv.exists():
-        print(MSG.file_not_found())
+    if not categories:
+        print(Colorize.colorize_text_orange("No categories set."))
         return
 
-    read_categories = []
-    aisles = []
-    columns = []
-    rows = []
+    print(Colorize.colorize_text_blue("Categories:"))
+    for cat in categories:
+        print(f"- {cat}")
 
-    with open(master_stockroom_csv, 'r') as master_file:
-        reader = csv.DictReader(master_file)
 
-        for row in reader:
-            read_categories.append(row['Category'])
-            aisles.append(row['Aisle #'])
-            columns.append(row['Column'])
-            rows.append(row['Row #'])
-
-    for i in range(len(read_categories)):
-        formatted_loc = f'{read_categories[i]}-{aisles[i]}-{columns[i]}-{rows[i]}'
-        locations.append(formatted_loc)
-
-    file_contents_read = True
-
-    # Add any new categories found in the CSV
-    for cat in read_categories:
-        if cat not in categories:
-            categories.append(cat)

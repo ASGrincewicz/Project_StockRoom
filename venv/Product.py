@@ -1,51 +1,44 @@
 # Aaron Grincewicz — 02/19/2023
 """
-Product Class
+Crash‑proof Product Class
 
-Represents a product stored in the inventory system.
+Represents a product stored in the Master Inventory.
+Tracks:
+- Product name
+- Product number
+- On-hand count
 
-Features:
-- Normalizes product names and product numbers
-- Tracks all stockroom locations where the product is stored
-- Provides a formatted display of product information
-
-Data Model:
-product_name: lowercase string
-product_num: zero-padded 4-digit string
-current_locations: string containing one or more newline-separated locations
+Location tracking is handled by ProductLocation.py and location CSVs.
 """
 
 class Product:
-    def __init__(self, product_name, product_num, locations):
+    def __init__(self, product_name, product_num, on_hand_count):
         """
-        Initialize a Product instance.
+        Initialize a Product instance safely.
 
         :param product_name: Name of the product (string)
-        :param product_num: Product number (string or int; will be zero-padded)
-        :param locations: Iterable of location identifiers (strings)
+        :param product_num: Product number (string or int; zero-padded)
+        :param on_hand_count: Integer count of items in stock
         """
-        self.product_name = product_name.lower()
-        self.product_num = product_num.zfill(4)
+        # Normalize product name
+        self.product_name = str(product_name).strip().upper() if product_name else "UNKNOWN"
 
-        # Store locations as a newline-separated string
-        self.current_locations = "UNLOCATED"
+        # Normalize product number
+        try:
+            self.product_num = str(product_num).zfill(4)
+        except Exception:
+            self.product_num = "0000"
 
-        if len(locations) > 0:
-            # If product is unlocated, replace with first location
-            if self.current_locations == "UNLOCATED":
-                self.current_locations = ""
-            for loc in locations:
-                self.current_locations += f"{loc}\n"
+        # Normalize on-hand count
+        try:
+            self.on_hand_count = int(on_hand_count)
+        except Exception:
+            self.on_hand_count = 0
 
     def get_product_info(self):
         """
-        Print formatted product information, including all known locations.
+        Print formatted product information.
         """
-        print(f'Name: {self.product_name.upper()}')
-        print(f'Product #: {self.product_num}')
-        print('___Product Locations___')
-
-        if len(self.current_locations) > 0:
-            # Print each location on its own line
-            for loc in self.current_locations.splitlines():
-                print(loc)
+        print(f"Name: {self.product_name}")
+        print(f"Product #: {self.product_num}")
+        print(f"On Hand: {self.on_hand_count}")
