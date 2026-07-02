@@ -1,148 +1,116 @@
 # Aaron Grincewicz — 02/19/2023
 """
-Messages & Input Helpers Module
-
-Provides:
-- Standardized user input functions for the Stockroom system
-- Normalization of category, aisle, column, row, product name, and product number inputs
-- Colorized error and status messages for consistent CLI feedback
-
-This module acts as the user-facing interface layer for the inventory system.
+Crash‑proof Messages & Input Handling Module
 """
 
 import Colorize
 
 
 # -----------------------------
-# Input Functions
+# Error / Status Message Helpers
 # -----------------------------
 
-def get_location_input() -> str:
-    """
-    Prompt the user for a stockroom location identifier.
+def file_exist():
+    return Colorize.colorize_text_orange("File already exists.")
 
-    :return: Uppercase location string
-    """
-    return input('Please enter the location:\n').strip().upper()
+def file_not_found():
+    return Colorize.colorize_text_orange("File not found.")
 
+def location_empty():
+    return Colorize.colorize_text_orange("This location has no products.")
 
-def get_category_input() -> str:
-    """
-    Prompt the user for a category abbreviation.
+def product_not_found():
+    return Colorize.colorize_text_orange("Product not found.")
 
-    :return: Uppercase category string
-    """
-    return input('Please enter the category:\n').strip().upper()
-
-
-def get_aisle_input() -> str:
-    """
-    Prompt the user for an aisle number.
-
-    :return: Zero-padded 2-digit aisle string
-    """
-    return input('Please enter the aisle #:\n').strip().zfill(2)
-
-
-def get_column_input() -> str:
-    """
-    Prompt the user for a single column letter.
-
-    :return: Uppercase column letter
-    """
-    return input('Please enter a single letter for the column:\n').strip().upper()
-
-
-def get_column_range_input() -> tuple:
-    """
-    Prompt the user for a starting and ending column letter.
-
-    :return: (start, end) tuple of uppercase letters
-    """
-    start = input('Please enter the starting column letter:\n').strip().upper()
-    end = input('Please enter the ending column letter:\n').strip().upper()
-    return start, end
-
-
-def get_row_input() -> str:
-    """
-    Prompt the user for a row number.
-
-    :return: Zero-padded 2-digit row string
-    """
-    return input('Please enter the Row #:\n').strip().zfill(2)
-
-
-def get_row_range_input() -> tuple:
-    """
-    Prompt the user for a starting and ending row number.
-
-    :return: (start, end) tuple of integers
-    """
-    start = int(input('Enter the starting row number:\n'))
-    end = int(input('Enter the ending row number:\n'))
-    return start, end
-
-
-def get_prod_name_input() -> str:
-    """
-    Prompt the user for a product name.
-
-    :return: Uppercase product name string
-    """
-    return input('Enter the product name:\n').strip().upper()
-
-
-def get_prod_num_input() -> str:
-    """
-    Prompt the user for a product number.
-
-    Ensures:
-    - Zero-padding to 4 digits
-    - Normalized formatting
-
-    :return: Zero-padded product number string
-    """
-    return input('Enter the product number (Max 4 digits, must start with 0):\n').strip().zfill(4)
-
-
-def get_amount_input(take: bool) -> int:
-    """
-    Prompt the user for an amount to add or remove.
-
-    :param take: If True, prompt for removal amount; if False, prompt for backstock amount.
-    :return: Integer amount
-    """
-    if take:
-        return int(input('Enter the amount to take (negative integer removes all):\n'))
-    else:
-        return int(input('Enter the amount to back stock:\n'))
+def invalid_input(msg="Invalid input. Try again."):
+    return Colorize.colorize_text_orange(msg)
 
 
 # -----------------------------
-# Error / Status Messages
+# Crash‑Proof Input Functions
 # -----------------------------
 
-def category_not_found() -> str:
-    """Return a standardized 'Category Not Found' message."""
-    return Colorize.colorize_text_red("Category Not Found")
+def get_location_input():
+    """
+    Always returns a valid, non-empty location string.
+    """
+    while True:
+        loc = input("Enter location (e.g., LD-01-A-03):\n").strip().upper()
+        if loc:
+            return loc
+        print(invalid_input("Location cannot be empty."))
 
 
-def product_not_found() -> str:
-    """Return a standardized 'Product Not Found' message."""
-    return Colorize.colorize_text_red("Product Not Found")
+def get_prod_num_input():
+    """
+    Always returns a valid 4-digit product number.
+    """
+    while True:
+        num = input("Enter product number:\n").strip()
+        if num.isdigit():
+            return num.zfill(4)
+        print(invalid_input("Product number must be digits only."))
 
 
-def location_empty() -> str:
-    """Return a standardized 'Location Is Empty' message."""
-    return Colorize.colorize_text_red("This Location Is Empty")
+def get_amount_input(allow_negative: bool):
+    """
+    Always returns a valid integer amount.
+    If allow_negative=False, negative numbers are rejected.
+    """
+    while True:
+        raw = input("Enter amount:\n").strip()
+        try:
+            amt = int(raw)
+            if not allow_negative and amt < 0:
+                print(invalid_input("Amount cannot be negative."))
+                continue
+            return amt
+        except ValueError:
+            print(invalid_input("Amount must be a number."))
 
 
-def file_not_found() -> str:
-    """Return a standardized 'File Not Found' message."""
-    return Colorize.colorize_text_red("File Not Found")
+def get_category_input():
+    """
+    Safe category input for MasterStockRoom.
+    """
+    while True:
+        cat = input("Enter category name:\n").strip().upper()
+        if cat:
+            return cat
+        print(invalid_input("Category cannot be empty."))
 
 
-def file_exist() -> str:
-    """Return a standardized 'File Exists' message."""
-    return Colorize.colorize_text_orange("File Exist")
+def get_range_input():
+    """
+    Safe numeric range input for CREATE MULTI LOC.
+    """
+    while True:
+        raw = input("Enter range (e.g., 1-10):\n").strip()
+        if "-" not in raw:
+            print(invalid_input("Range must be in format X-Y."))
+            continue
+
+        start, end = raw.split("-", 1)
+
+        if not start.isdigit() or not end.isdigit():
+            print(invalid_input("Range values must be digits."))
+            continue
+
+        start, end = int(start), int(end)
+
+        if start > end:
+            print(invalid_input("Start of range cannot be greater than end."))
+            continue
+
+        return start, end
+
+
+def confirm_action(prompt="Confirm? Enter Y or N\n"):
+    """
+    Safe confirmation input.
+    """
+    while True:
+        ans = input(prompt).strip().upper()
+        if ans in ("Y", "N"):
+            return ans
+        print(invalid_input("Please enter Y or N."))
