@@ -5,7 +5,7 @@ Crash‑proof Location-Level Inventory Module
 
 from pathlib import Path
 import csv
-from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location
+from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively,select_location_interactively
 import Colorize
 import Messages as MSG
 
@@ -91,7 +91,10 @@ def read_location_file(location) -> dict:
 
 
 def audit_location():
-    location = MSG.get_location_input()
+    location = select_location_interactively()
+    if not location:
+        return
+
     prod_in_loc = read_location_file(location)
 
     if not prod_in_loc:
@@ -116,8 +119,16 @@ def audit_product():
 
 
 def back_stock_product():
-    location = MSG.get_location_input()
-    product_num = MSG.get_prod_num_input()
+    location = select_location_interactively()
+    if not location:
+        return
+
+    selection = select_product_interactively()
+    if not selection:
+        return
+    product_num, product_name = selection
+    print(f"Selected: {product_name} (#{product_num})")
+
     amount = MSG.get_amount_input(False)
 
     location_csv = Path(f'StockroomLocations/{location}.csv')
@@ -159,8 +170,16 @@ def back_stock_product():
 
 
 def remove_product():
-    location = MSG.get_location_input()
-    product_num = MSG.get_prod_num_input()
+    location = select_location_interactively()
+    if not location:
+        return
+
+    selection = select_product_interactively()
+    if not selection:
+        return
+    product_num, product_name = selection
+    print(f"Selected: {product_name} (#{product_num})")
+
     amount = MSG.get_amount_input(True)
 
     prod_in_loc = read_location_file(location)
@@ -197,9 +216,16 @@ def remove_product():
 
 
 def get_product_amount() -> int:
-    location = MSG.get_location_input()
+    location = select_location_interactively()
+    if not location:
+        return 0
+
     prod_in_loc = read_location_file(location)
-    product_num = MSG.get_prod_num_input()
+    selection = select_product_interactively()
+    if not selection:
+        return 0
+    product_num, product_name = selection
+    print(f"Selected: {product_name} (#{product_num})")
 
     if product_num in prod_in_loc:
         try:

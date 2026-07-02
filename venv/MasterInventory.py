@@ -261,3 +261,24 @@ def select_product_interactively():
                 return num, name
         print("Invalid selection.")
 
+def select_location_interactively():
+    loc_dir = Path("StockroomLocations")
+    files = sorted(loc_dir.glob("*.csv"))
+
+    if not files:
+        print("No locations found.")
+        return None
+
+    print("\nSelect a location:")
+    for i, f in enumerate(files, start=1):
+        print(f"{i}. {f.stem}")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= len(files):
+                return files[idx - 1].stem
+        print("Invalid selection.")
+
+
