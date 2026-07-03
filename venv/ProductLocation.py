@@ -94,6 +94,7 @@ def audit_location():
     location = select_location_interactively()
     if not location:
         return
+    print(f"Selected location: {location}")
 
     prod_in_loc = read_location_file(location)
 
@@ -115,19 +116,29 @@ def audit_location():
 
 
 def audit_product():
-    print("Audit Product feature not implemented yet.")
+    selection = select_product_interactively()
+    if not selection:
+        return
+    product_num, product_name = selection
 
-
-def back_stock_product():
     location = select_location_interactively()
     if not location:
         return
 
+    amount = MSG.get_amount_input()
+
+
+def back_stock_product():
     selection = select_product_interactively()
     if not selection:
         return
     product_num, product_name = selection
     print(f"Selected: {product_name} (#{product_num})")
+
+    location = select_location_interactively()
+    if not location:
+        return
+    print(f"Selected location: {location}")
 
     amount = MSG.get_amount_input(False)
 
@@ -170,15 +181,16 @@ def back_stock_product():
 
 
 def remove_product():
-    location = select_location_interactively()
-    if not location:
-        return
-
     selection = select_product_interactively()
     if not selection:
         return
     product_num, product_name = selection
     print(f"Selected: {product_name} (#{product_num})")
+
+    location = select_location_interactively()
+    if not location:
+        return
+    print(f"Selected location: {location}")
 
     amount = MSG.get_amount_input(True)
 
@@ -219,6 +231,7 @@ def get_product_amount() -> int:
     location = select_location_interactively()
     if not location:
         return 0
+    print(f"Selected location: {location}")
 
     prod_in_loc = read_location_file(location)
     selection = select_product_interactively()

@@ -67,6 +67,106 @@ def write_to_stock_room_csv():
     except Exception:
         print("Error writing Stockroom CSV.")
 
+from pathlib import Path
+
+def parse_location(loc):
+    """Parse LD-01-A-03 → (LD, 01, A, 03)."""
+    try:
+        parts = loc.split("-")
+        if len(parts) != 4:
+            return None
+        return parts[0], parts[1], parts[2], parts[3]
+    except Exception:
+        return None
+
+
+def build_location_index():
+    """
+    Build nested dict:
+    {
+        category: {
+            aisle: {
+                column: [rows]
+            }
+        }
+    }
+    """
+    index = {}
+    loc_dir = Path("StockroomLocations")
+
+    for file in loc_dir.glob("*.csv"):
+        loc = file.stem
+        parsed = parse_location(loc)
+        if not parsed:
+            continue
+
+        category, aisle, column, row = parsed
+
+        index.setdefault(category, {})
+        index[category].setdefault(aisle, {})
+        index[category][aisle].setdefault(column, [])
+        index[category][aisle][column].append(row)
+
+    return index
+
+
+def select_location_interactively():
+    """Hierarchical location selector."""
+    index = build_location_index()
+
+    # Step 1 — Category
+    categories = sorted(index.keys())
+    print("\nSelect a category:")
+    for i, cat in enumerate(categories, start=1):
+        print(f"{i}. {cat}")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(categories):
+            category = categories[int(choice) - 1]
+            break
+        print("Invalid selection.")
+
+    # Step 2 — Aisle
+    aisles = sorted(index[category].keys())
+    print("\nSelect an aisle:")
+    for i, aisle in enumerate(aisles, start=1):
+        print(f"{i}. {aisle}")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(aisles):
+            aisle = aisles[int(choice) - 1]
+            break
+        print("Invalid selection.")
+
+    # Step 3 — Column
+    columns = sorted(index[category][aisle].keys())
+    print("\nSelect a column:")
+    for i, col in enumerate(columns, start=1):
+        print(f"{i}. {col}")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(columns):
+            column = columns[int(choice) - 1]
+            break
+        print("Invalid selection.")
+
+    # Step 4 — Row
+    rows = sorted(index[category][aisle][column])
+    print("\nSelect a row:")
+    for i, row in enumerate(rows, start=1):
+        print(f"{i}. {row}")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(rows):
+            row = rows[int(choice) - 1]
+            break
+        print("Invalid selection.")
+
+    return f"{category}-{aisle}-{column}-{row}"
 
 # -----------------------------
 # Category Management
