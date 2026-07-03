@@ -5,7 +5,8 @@ Crash‑proof Location-Level Inventory Module
 
 from pathlib import Path
 import csv
-from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively,select_location_interactively
+from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively
+from MasterStockRoom import select_location_interactively
 import Colorize
 import Messages as MSG
 
@@ -90,8 +91,7 @@ def read_location_file(location) -> dict:
     return products_in_loc_file
 
 
-def audit_location():
-    location = select_location_interactively()
+def audit_location(location):
     if not location:
         return
     print(f"Selected location: {location}")
@@ -128,10 +128,16 @@ def audit_product():
     amount = MSG.get_amount_input()
 
 
-def back_stock_product():
-    selection = select_product_interactively()
+def back_stock_product(term=None):
+    # Step 1 — Product selection
+    if term:
+        selection = select_product_interactively(term)
+    else:
+        selection = select_product_interactively()
+
     if not selection:
         return
+
     product_num, product_name = selection
     print(f"Selected: {product_name} (#{product_num})")
 

@@ -3,7 +3,6 @@
 Crash‑proof Master StockRoom Module
 
 Manages:
-- Categories
 - Location creation (single + multi)
 - Reading/writing Stockroom CSV
 """
@@ -12,22 +11,15 @@ import csv
 from pathlib import Path
 import Messages as MSG
 import Colorize
+from MasterInventory import categories
 
 master_stockroom_file = Path("master_stockroom_location.csv")
-
-categories = []
-
 
 # -----------------------------
 # Crash‑proof CSV read/write
 # -----------------------------
 
 def read_from_stock_room_csv():
-    """
-    Safely read categories from master_stockroom.csv.
-    """
-    global categories
-
     if not master_stockroom_file.exists():
         print(MSG.file_not_found())
         return
@@ -36,7 +28,7 @@ def read_from_stock_room_csv():
         with open(master_stockroom_file, "r", newline="") as f:
             reader = csv.DictReader(f)
 
-            categories = []
+            categories.clear()   # ← FIX: do NOT reassign the list
             for row in reader:
                 cat = row.get("Category", "").strip()
                 if cat:
@@ -48,6 +40,7 @@ def read_from_stock_room_csv():
 
     except Exception:
         print("Error reading Stockroom CSV.")
+
 
 
 def write_to_stock_room_csv():
@@ -64,20 +57,27 @@ def write_to_stock_room_csv():
 
         print(Colorize.colorize_text_blue("Stockroom categories saved."))
 
-    except Exception:
+    except Exception as e:
         print("Error writing Stockroom CSV.")
+        print(f"Details: {e}")
+
+
 
 from pathlib import Path
 
 def parse_location(loc):
-    """Parse LD-01-A-03 → (LD, 01, A, 03)."""
-    try:
-        parts = loc.split("-")
-        if len(parts) != 4:
-            return None
-        return parts[0], parts[1], parts[2], parts[3]
-    except Exception:
+    parts = loc.split("-")
+    if len(parts) != 4:
         return None
+
+    category, aisle, column, row = parts
+
+    # Normalize row formatting (01, 02, 03…)
+    if row.isdigit():
+        row = row.zfill(2)
+
+    return category, aisle, column, row
+
 
 
 def build_location_index():
@@ -111,11 +111,14 @@ def build_location_index():
 
 
 def select_location_interactively():
-    """Hierarchical location selector."""
+    """Hybrid hierarchical selector that supports new categories."""
+    global categories
+
     index = build_location_index()
 
-    # Step 1 — Category
-    categories = sorted(index.keys())
+    # -----------------------------
+    # Step 1 — Category (from categories list)
+    # -----------------------------
     print("\nSelect a category:")
     for i, cat in enumerate(categories, start=1):
         print(f"{i}. {cat}")
@@ -127,72 +130,81 @@ def select_location_interactively():
             break
         print("Invalid selection.")
 
+    # -----------------------------
     # Step 2 — Aisle
-    aisles = sorted(index[category].keys())
-    print("\nSelect an aisle:")
-    for i, aisle in enumerate(aisles, start=1):
-        print(f"{i}. {aisle}")
+    # -----------------------------
+    if category in index:
+        aisles = sorted(index[category].keys())
+        print("\nSelect an aisle:")
+        for i, aisle in enumerate(aisles, start=1):
+            print(f"{i}. {aisle}")
+        print(f"{len(aisles)+1}. NEW AISLE")
 
-    while True:
-        choice = input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(aisles):
-            aisle = aisles[int(choice) - 1]
-            break
-        print("Invalid selection.")
+        while True:
+            choice = input("Enter number:\n").strip()
+            if choice.isdigit():
+                choice = int(choice)
+                if 1 <= choice <= len(aisles):
+                    aisle = aisles[choice - 1]
+                    break
+                elif choice == len(aisles) + 1:
+                    aisle = input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+                    break
+            print("Invalid selection.")
+    else:
+        # No aisles exist yet for this category
+        aisle = input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
 
+    # -----------------------------
     # Step 3 — Column
-    columns = sorted(index[category][aisle].keys())
-    print("\nSelect a column:")
-    for i, col in enumerate(columns, start=1):
-        print(f"{i}. {col}")
+    # -----------------------------
+    if category in index and aisle in index[category]:
+        columns = sorted(index[category][aisle].keys())
+        print("\nSelect a column:")
+        for i, col in enumerate(columns, start=1):
+            print(f"{i}. {col}")
+        print(f"{len(columns)+1}. NEW COLUMN")
 
-    while True:
-        choice = input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(columns):
-            column = columns[int(choice) - 1]
-            break
-        print("Invalid selection.")
+        while True:
+            choice = input("Enter number:\n").strip()
+            if choice.isdigit():
+                choice = int(choice)
+                if 1 <= choice <= len(columns):
+                    column = columns[choice - 1]
+                    break
+                elif choice == len(columns) + 1:
+                    column = input("Enter new column (e.g., A):\n").strip().upper()
+                    break
+            print("Invalid selection.")
+    else:
+        column = input("\nEnter new column (e.g., A):\n").strip().upper()
 
+    # -----------------------------
     # Step 4 — Row
-    rows = sorted(index[category][aisle][column])
-    print("\nSelect a row:")
-    for i, row in enumerate(rows, start=1):
-        print(f"{i}. {row}")
+    # -----------------------------
+    if category in index and aisle in index[category] and column in index[category][aisle]:
+        rows = sorted(index[category][aisle][column])
+        print("\nSelect a row:")
+        for i, row in enumerate(rows, start=1):
+            print(f"{i}. {row}")
+        print(f"{len(rows)+1}. NEW ROW")
 
-    while True:
-        choice = input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(rows):
-            row = rows[int(choice) - 1]
-            break
-        print("Invalid selection.")
+        while True:
+            choice = input("Enter number:\n").strip()
+            if choice.isdigit():
+                choice = int(choice)
+                if 1 <= choice <= len(rows):
+                    row = rows[choice - 1]
+                    break
+                elif choice == len(rows) + 1:
+                    row = input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
+                    break
+            print("Invalid selection.")
+    else:
+        row = input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
     return f"{category}-{aisle}-{column}-{row}"
 
-# -----------------------------
-# Category Management
-# -----------------------------
-
-def set_categories():
-    """
-    Safely set categories (overwrites existing list).
-    """
-    global categories
-
-    print(Colorize.colorize_text_blue("Enter categories. Type DONE when finished."))
-
-    new_categories = []
-
-    while True:
-        cat = input("Category:\n").strip().upper()
-        if cat == "DONE":
-            break
-        if not cat:
-            print(MSG.invalid_input("Category cannot be empty."))
-            continue
-        new_categories.append(cat)
-
-    categories = new_categories
-    write_to_stock_room_csv()
 
 
 # -----------------------------
@@ -203,8 +215,11 @@ def create_new_location():
     """
     Create a single location file safely.
     """
-    loc = MSG.get_location_input()
-    loc_path = Path(f"StockroomLocations/{loc}.csv")
+    location = select_location_interactively()
+    if not location:
+        return
+
+    loc_path = Path(f"StockroomLocations/{location}.csv")
 
     try:
         loc_path.parent.mkdir(exist_ok=True)
@@ -217,7 +232,7 @@ def create_new_location():
             writer = csv.writer(f)
             writer.writerow(["Product #", "Product Name", "Amount"])
 
-        print(Colorize.colorize_text_blue(f"Location {loc} created."))
+        print(Colorize.colorize_text_blue(f"Location {location} created."))
 
     except Exception:
         print("Error creating location.")
@@ -259,16 +274,6 @@ def create_multiple_locations():
 # Utility
 # -----------------------------
 
-def show_categories():
-    """
-    Display categories safely.
-    """
-    if not categories:
-        print(Colorize.colorize_text_orange("No categories set."))
-        return
 
-    print(Colorize.colorize_text_blue("Categories:"))
-    for cat in categories:
-        print(f"- {cat}")
 
 
