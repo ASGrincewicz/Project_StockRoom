@@ -5,7 +5,8 @@ Crash‑proof Location-Level Inventory Module
 
 from pathlib import Path
 import csv
-from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively,select_location_interactively
+from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively
+from MasterStockRoom import select_location_interactively
 import Colorize
 import Messages as MSG
 
@@ -90,10 +91,10 @@ def read_location_file(location) -> dict:
     return products_in_loc_file
 
 
-def audit_location():
-    location = select_location_interactively()
+def audit_location(location):
     if not location:
         return
+    print(f"Selected location: {location}")
 
     prod_in_loc = read_location_file(location)
 
@@ -115,19 +116,35 @@ def audit_location():
 
 
 def audit_product():
-    print("Audit Product feature not implemented yet.")
-
-
-def back_stock_product():
-    location = select_location_interactively()
-    if not location:
-        return
-
     selection = select_product_interactively()
     if not selection:
         return
     product_num, product_name = selection
+
+    location = select_location_interactively()
+    if not location:
+        return
+
+    amount = MSG.get_amount_input()
+
+
+def back_stock_product(term=None):
+    # Step 1 — Product selection
+    if term:
+        selection = select_product_interactively(term)
+    else:
+        selection = select_product_interactively()
+
+    if not selection:
+        return
+
+    product_num, product_name = selection
     print(f"Selected: {product_name} (#{product_num})")
+
+    location = select_location_interactively()
+    if not location:
+        return
+    print(f"Selected location: {location}")
 
     amount = MSG.get_amount_input(False)
 
@@ -170,15 +187,16 @@ def back_stock_product():
 
 
 def remove_product():
-    location = select_location_interactively()
-    if not location:
-        return
-
     selection = select_product_interactively()
     if not selection:
         return
     product_num, product_name = selection
     print(f"Selected: {product_name} (#{product_num})")
+
+    location = select_location_interactively()
+    if not location:
+        return
+    print(f"Selected location: {location}")
 
     amount = MSG.get_amount_input(True)
 
@@ -219,6 +237,7 @@ def get_product_amount() -> int:
     location = select_location_interactively()
     if not location:
         return 0
+    print(f"Selected location: {location}")
 
     prod_in_loc = read_location_file(location)
     selection = select_product_interactively()

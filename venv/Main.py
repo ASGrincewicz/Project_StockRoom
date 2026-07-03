@@ -28,9 +28,14 @@ def show_commands():
         + "EDIT: Edit a product.\n"
         + "SEARCH: Search Master Inventory by name.\n"
         + "# SEARCH: Search Master Inventory by product number.\n\n"
+        + Colorize.colorize_text_yellow("Category Management Commands:\n----------------------------\n")
+        + "ADD CAT: Add a new category.\n"
+        + "SET CAT: Set the categories(WARNING! Overwrites ALL categories!.\n"
+        + "SHOW CAT: Show the categories.\n"
+
         + Colorize.colorize_text_orange("Location Management Commands:\n----------------------------\n")
         + "AUDIT: Show all products in a location.\n"
-        + "BACK STOCK: Add a product to a location.\n"
+        + "BACKSTOCK: Add a product to a location.\n"
         + "TAKE: Remove a product from a location.\n"
         + "CREATE LOC: Create a new location.\n"
         + "CREATE MULTI LOC: Create multiple locations.\n"
@@ -45,11 +50,21 @@ def main():
     while True:
         if dirty:
             prompt += " (unsaved changes)"
-        commands = input(Colorize.colorize_text_orange(f"{prompt}:\n")).strip().upper()
+        raw = input("Enter a command:\n").strip()
+        upper_raw = raw.upper()
+        parts = upper_raw.split()
 
-        match commands:
+        command = parts[0]
+        args = parts[1:]
+
+        match upper_raw:
+
             case 'MENU':
                 show_commands()
+
+            case 'ADD CAT':
+                add_categories()
+                dirty = True
 
             case 'SET CAT':
                 set_categories()
@@ -58,36 +73,19 @@ def main():
             case 'SHOW CAT':
                 print(categories)
 
-            case 'SEARCH':
-                term = input('Enter your search term:\n').strip().upper()
-                search_inventory(term)
-
-            case '# SEARCH':
-                term = input('Enter product number:\n').strip().upper().zfill(4)
-                search_by_prod_num(term)
-
-            case 'ADD':
-                add_single_product()
-                dirty = True
-
-            case 'EDIT':
-                edit_product()
-                dirty = True
-
-            case 'WRITE':
-                write_to_master_inventory_csv()
-
-            case 'READ':
-                read_from_master_inventory_csv()
-
-            case 'SORT':
-                write_to_master_inventory_csv()
-
             case 'BACK STOCK':
-                back_stock_product()
+                if args:
+                    term = " ".join(args)
+                    back_stock_product(term)
+                else:
+                    back_stock_product()
 
-            case 'TAKE':
-                remove_product()
+            case 'TAKE STOCK':
+                if args:
+                    term = " ".join(args)
+                    remove_product(term)
+                else:
+                    remove_product()
                 dirty = True
 
             case 'DELETE PRODUCT':
@@ -106,12 +104,14 @@ def main():
                 read_from_stock_room_csv()
 
             case 'AUDIT':
-                audit_location()
+                location = select_location_interactively()
+                audit_location(location)
 
             case 'SAVE':
                 write_to_master_inventory_csv()
                 write_to_stock_room_csv()
                 dirty = False
+
             case 'QUIT':
                 if dirty:
                     print("Saving changes before quitting...")
@@ -120,8 +120,54 @@ def main():
                 print("Goodbye.")
                 exit()
 
+            # -----------------------------------
+            # FALLBACK TO SINGLE-WORD COMMANDS
+            # -----------------------------------
             case _:
-                print("Unknown command. Type MENU to see available commands.")
+                match command:
+
+                    case 'SEARCH':
+                        if args:
+                            term = " ".join(args).upper()
+                        else:
+                            term = input('Enter your search term:\n').strip().upper()
+                        search_inventory(term)
+
+                    case '#':
+                        if args and args[0] == 'SEARCH':
+                            term = input('Enter product number:\n').strip().upper().zfill(4)
+                            search_by_prod_num(term)
+
+                    case 'ADD':
+                        add_single_product()
+                        dirty = True
+
+                    case 'EDIT':
+                        edit_product()
+                        dirty = True
+
+                    case 'WRITE':
+                        write_to_master_inventory_csv()
+
+                    case 'READ':
+                        read_from_master_inventory_csv()
+
+                    case 'SORT':
+                        write_to_master_inventory_csv()
+
+                    case 'TAKE':
+                        remove_product()
+                        dirty = True
+
+                    case 'BACKSTOCK':
+                        if args:
+                            term = " ".join(args)
+                            back_stock_product(term)
+                        else:
+                            back_stock_product()
+
+                    case _:
+                        print("Unknown command. Type MENU to see available commands.")
 
 
 # Initial safe data load

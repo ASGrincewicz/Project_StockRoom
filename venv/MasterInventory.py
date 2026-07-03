@@ -4,6 +4,7 @@ Crash‑proof Master Inventory Module
 """
 
 import csv
+import Colorize
 from Product import Product
 from pathlib import Path
 
@@ -13,6 +14,7 @@ file_contents_read = False
 file_contents_written = False
 
 master_inventory = dict()
+categories = []
 
 
 def verify_prod_num(nums_to_check) -> bool:
@@ -82,22 +84,23 @@ def add_multi_product_from_file(products_to_add):
         print("Error importing multiple products.")
 
 
-def search_inventory(search_term):
-    try:
-        results = 0
-        for num, name_dict in master_inventory.items():
-            for prod_name, count in name_dict.items():
-                if search_term.upper() in prod_name:
-                    print(f'Product: {prod_name} | Item Number: {num} | On Hand: {count}')
-                    results += 1
+def search_inventory(term):
+    term = term.upper()
+    results = []
 
-        print(f'Search Results: {results}')
+    for prod_num, name_dict in master_inventory.items():
+        for name, count in name_dict.items():
+            if term in name:
+                results.append((prod_num, name, count))
 
-        if not file_contents_read and results == 0:
-            print('Try your search again after importing the Master Inventory file.')
+    if not results:
+        print("Search Results: 0")
+        return
 
-    except Exception:
-        print("Error searching inventory.")
+    print("Search Results:")
+    for prod_num, name, count in results:
+        print(f"{prod_num}: {name} — On Hand: {count}")
+
 
 
 def search_by_prod_num(product_num):
@@ -231,12 +234,15 @@ def update_product_location(add: bool, product_num: str, location: str):
     """
     pass
 
-def select_product_interactively():
+def select_product_interactively(term=None):
     """
     Search for a product by name and let the user select from results.
     Returns (product_num, product_name) or None.
     """
-    term = input("Search for product:\n").strip().upper()
+    if term is None:
+        term = input("Search for product:\n").strip().upper()
+    else:
+        term = term.upper()
     matches = []
 
     for num, name_dict in master_inventory.items():
@@ -260,25 +266,52 @@ def select_product_interactively():
                 num, name, _ = matches[idx - 1]
                 return num, name
         print("Invalid selection.")
+# -----------------------------
+# Category Management
+# -----------------------------
 
-def select_location_interactively():
-    loc_dir = Path("StockroomLocations")
-    files = sorted(loc_dir.glob("*.csv"))
+def set_categories():
+    global categories
+    categories.clear()
 
-    if not files:
-        print("No locations found.")
-        return None
-
-    print("\nSelect a location:")
-    for i, f in enumerate(files, start=1):
-        print(f"{i}. {f.stem}")
-
+    print("Enter categories. Type DONE when finished.")
     while True:
-        choice = input("Enter number:\n").strip()
-        if choice.isdigit():
-            idx = int(choice)
-            if 1 <= idx <= len(files):
-                return files[idx - 1].stem
-        print("Invalid selection.")
+        cat = input("Category:\n").strip()
+        if cat.upper() == "DONE":
+            break
+        categories.append(cat.upper())
+
+    print("Stockroom categories saved.")
+
+def add_categories():
+    global categories
+
+    print("Enter categories to add. Type DONE when finished.")
+    while True:
+        cat = input("Category:\n").strip()
+        if cat.upper() == "DONE":
+            break
+
+        cat = cat.upper()
+
+        if cat in categories:
+            print(f"{cat} already exists. Skipping.")
+        else:
+            categories.append(cat)
+            print(f"{cat} added.")
+
+    print("New categories appended.")
+
+def show_categories():
+    """
+    Display categories safely.
+    """
+    if not categories:
+        print(Colorize.colorize_text_orange("No categories set."))
+        return
+
+    print(Colorize.colorize_text_blue("Categories:"))
+    for cat in categories:
+        print(f"- {cat}")
 
 
