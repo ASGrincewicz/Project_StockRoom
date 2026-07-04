@@ -20,26 +20,43 @@ master_stockroom_file = Path("master_stockroom_location.csv")
 # -----------------------------
 
 def read_from_stock_room_csv():
+    """
+    Load categories from master_stockroom.csv.
+    If codes are missing (old format), assign them based on row order.
+    """
+    global categories
+
     if not master_stockroom_file.exists():
-        print(MSG.file_not_found())
+        print("Stockroom category file not found.")
         return
 
     try:
         with open(master_stockroom_file, "r", newline="") as f:
             reader = csv.DictReader(f)
 
-            categories.clear()   # ← FIX: do NOT reassign the list
+            categories.clear()
+            row_number = 1
+
             for row in reader:
                 cat = row.get("Category", "").strip()
-                if cat:
-                    categories.append(cat)
-                else:
-                    print("Malformed CSV row. Skipping.")
+                code = row.get("Code", "").strip()
+
+                if not cat:
+                    print(f"Skipping malformed row: {row}")
+                    continue
+
+                # If code is missing (old CSV format), assign based on row number
+                if not code:
+                    code = str(row_number).zfill(2)
+
+                categories.append((cat, code))
+                row_number += 1
 
         print(Colorize.colorize_text_blue("Stockroom categories imported."))
 
-    except Exception:
+    except Exception as e:
         print("Error reading Stockroom CSV.")
+        print(f"Details: {e}")
 
 
 
@@ -50,10 +67,10 @@ def write_to_stock_room_csv():
     try:
         with open(master_stockroom_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Category"])
+            writer.writerow(["Category", "Code"])
 
-            for cat in categories:
-                writer.writerow([cat])
+            for cat, code in categories:
+                writer.writerow([cat,code])
 
         print(Colorize.colorize_text_blue("Stockroom categories saved."))
 
