@@ -32,56 +32,60 @@ def verify_prod_num(nums_to_check) -> bool:
 
 
 def add_single_product():
-    try:
-        prod_name = input('Enter the product name:\n').strip().upper()
-        if not prod_name:
-            print("Invalid product name.")
-            return
+    global categories, master_inventory
 
-        prod_num_input = input('Enter the product number:\n').strip().lower()
-        if not prod_num_input.isdigit():
-            print("Product number must be digits only.")
-            return
+    # Step 1 — Choose category
+    print("Select a category:")
+    for i, (cat, code) in enumerate(categories, start=1):
+        print(f"{i}. {cat} ({code})")
 
-        nums_to_verify = {prod_num_input}
-        while not verify_prod_num(nums_to_verify):
-            prod_num_input = input('Enter a different product number:\n').strip().lower()
-            if not prod_num_input.isdigit():
-                print("Product number must be digits only.")
-                return
-            nums_to_verify = {prod_num_input}
+    while True:
+        choice = input("Enter number:\n").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(categories):
+            category = categories[int(choice) - 1][0]
+            break
+        print("Invalid selection.")
 
-        prod_num = prod_num_input.zfill(4)
+    # Step 2 — Product name
+    name = input("Enter product name:\n").strip().upper()
 
-        try:
-            on_hand = int(input('How many are in stock?\n').strip())
-        except ValueError:
-            print("On-hand count must be a number.")
-            return
+    # Step 3 — Auto-increment product number
+    prod_num = get_next_product_number(category)
+    if not prod_num:
+        print("Error generating product number.")
+        return
 
-        new_prod = Product(prod_name, prod_num, on_hand)
-        master_inventory[new_prod.product_num] = {new_prod.product_name: new_prod.on_hand_count}
-        print(f'{new_prod.product_name} added.')
+    # Step 4 — Initial count
+    count = input("Enter initial count:\n").strip()
+    if not count.isdigit():
+        print("Invalid count.")
+        return
 
-    except Exception:
-        print("Unexpected error adding product.")
+    # Step 5 — Add to in-memory inventory
+    master_inventory[prod_num] = {name: int(count)}
+
+    print(Colorize.colorize_text_blue(
+        f"Product added to inventory: {prod_num} - {name} ({category})"
+    ))
+
 
 
 def add_multi_product_from_file(products_to_add):
+    global master_inventory
+
     try:
-        nums_to_verify = {p.product_num for p in products_to_add}
+        for product in products_to_add:
+            # Insert into in-memory inventory
+            master_inventory[product.product_num] = {
+                product.product_name.upper(): product.on_hand_count
+            }
+            print(f'{product.product_name.upper()} added.')
 
-        if verify_prod_num(nums_to_verify):
-            for product in products_to_add:
-                master_inventory[product.product_num] = {
-                    product.product_name.upper(): product.on_hand_count
-                }
-                print(f'{product.product_name.upper()} added.')
-        else:
-            print("Duplicate product numbers found. Skipping batch import.")
-
-    except Exception:
+    except Exception as e:
         print("Error importing multiple products.")
+        print(f"Details: {e}")
+
+
 
 
 def search_inventory(term):
@@ -319,5 +323,30 @@ def show_categories():
     print(Colorize.colorize_text_blue("Categories:"))
     for cat, code in categories:
         print(f"- {cat}: {code}")
+
+def get_category_code(cat_name):
+    for cat, code in categories:
+        if cat == cat_name:
+            return code
+    return None
+
+def get_next_product_number(category):
+    code = get_category_code(category)
+    if not code:
+        return None
+
+    highest = 0
+
+    # Scan all products
+    with open(master_inventory_file, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            prod_num = row["Product #"]
+            if prod_num.startswith(code):
+                item_num = int(prod_num[-2:])
+                highest = max(highest, item_num)
+
+    next_item = highest + 1
+    return f"{code}{str(next_item).zfill(2)}"
 
 
