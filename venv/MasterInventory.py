@@ -279,9 +279,13 @@ def set_categories():
         cat = input("Category:\n").strip()
         if cat.upper() == "DONE":
             break
-        categories.append(cat.upper())
+
+        cat = cat.upper()
+        code = str(len(categories) + 1).zfill(2)
+        categories.append((cat, code))
 
     print("Stockroom categories saved.")
+
 
 def add_categories():
     global categories
@@ -294,13 +298,15 @@ def add_categories():
 
         cat = cat.upper()
 
-        if cat in categories:
+        # Check if category already exists
+        if any(c == cat for c, _ in categories):
             print(f"{cat} already exists. Skipping.")
-        else:
-            categories.append(cat)
-            print(f"{cat} added.")
+            continue
 
-    print("New categories appended.")
+        code = str(len(categories) + 1).zfill(2)
+        categories.append((cat, code))
+        print(f"{cat}:{code} added.")
+
 
 def show_categories():
     """
@@ -311,7 +317,7 @@ def show_categories():
         return
 
     print(Colorize.colorize_text_blue("Categories:"))
-    for cat in categories:
-        print(f"- {cat}")
+    for cat, code in categories:
+        print(f"- {cat}: {code}")
 
 

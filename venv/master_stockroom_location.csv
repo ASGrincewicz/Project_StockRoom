@@ -1,5 +1,7 @@
-Category
-TOY
-BABY
-PET
-GAME
+Category,Code
+TOY,01
+BABY,02
+PET,03
+GAME,04
+BOOK,05
+SPORT,06
