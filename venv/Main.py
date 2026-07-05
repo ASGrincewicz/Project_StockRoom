@@ -43,6 +43,18 @@ def show_commands():
         + "CREATE MULTI LOC: Create multiple locations.\n"
         + "READ LOC: Import Master Stockroom CSV.\n"
     )
+def user_input(prompt):
+    value = input(prompt).strip()
+    if value.upper() in ("X", "CANCEL", "BACK"):
+        raise KeyboardInterrupt  # clean escape from command
+    return value
+
+def run_command(func):
+    try:
+        func()
+    except KeyboardInterrupt:
+        print("Command cancelled.")
+
 
 
 def main():
@@ -52,7 +64,7 @@ def main():
     while True:
         if dirty:
             prompt += " (unsaved changes)"
-        raw = input("Enter a command:\n").strip()
+        raw = user_input("Enter a command:\n").strip()
         upper_raw = raw.upper()
         parts = upper_raw.split()
 
@@ -65,51 +77,49 @@ def main():
                 show_commands()
 
             case 'ADD CAT':
-                add_categories()
-                dirty = True
+                run_command(add_categories)
 
             case 'SET CAT':
-                set_categories()
-                dirty = True
+                run_command(set_categories)
 
             case 'SHOW CAT':
-                print(categories)
+                run_command(print(categories))
 
             case 'CAT PROD':
-                show_products_in_category()
+                run_command(show_products_in_category)
 
             case 'BACK STOCK':
                 if args:
                     term = " ".join(args)
-                    back_stock_product(term)
+                    run_command(back_stock_product(term))
                 else:
-                    back_stock_product()
+                   run_command(back_stock_product())
 
             case 'TAKE STOCK':
                 if args:
                     term = " ".join(args)
-                    remove_product(term)
+                    run_command(remove_product(term))
                 else:
-                    remove_product()
+                   run_command(remove_product())
                 dirty = True
 
             case 'DELETE PRODUCT':
-                delete_product()
+                run_command(delete_product)
                 dirty = True
 
             case 'CREATE LOC':
-                create_new_location()
+                run_command(create_new_location())
                 dirty = True
 
             case 'CREATE MULTI LOC':
-                create_multiple_locations()
+                run_command(create_multiple_locations)
                 dirty = True
 
             case 'READ LOC':
-                read_from_stock_room_csv()
+                run_command(read_from_master_inventory_csv())
 
             case 'AUDIT':
-                audit_location()
+                run_command(audit_location)
 
             case 'SAVE':
                 write_to_master_inventory_csv()
@@ -134,20 +144,20 @@ def main():
                         if args:
                             term = " ".join(args).upper()
                         else:
-                            term = input('Enter your search term:\n').strip().upper()
-                        search_inventory(term)
+                            term = user_input('Enter your search term:\n').strip().upper()
+                        run_command(search_inventory(term))
 
                     case '#':
                         if args and args[0] == 'SEARCH':
-                            term = input('Enter product number:\n').strip().upper().zfill(4)
-                            search_by_prod_num(term)
+                            term = user_input('Enter product number:\n').strip().upper().zfill(4)
+                            run_command(search_inventory(term))
 
                     case 'ADD':
-                        add_single_product()
+                        run_command(add_single_product)
                         dirty = True
 
                     case 'EDIT':
-                        edit_product()
+                        run_command(edit_product)
                         dirty = True
 
                     case 'WRITE':
@@ -160,15 +170,15 @@ def main():
                         write_to_master_inventory_csv()
 
                     case 'TAKE':
-                        remove_product()
+                        run_command(remove_product)
                         dirty = True
 
                     case 'BACKSTOCK':
                         if args:
                             term = " ".join(args)
-                            back_stock_product(term)
+                            run_command(back_stock_product(term))
                         else:
-                            back_stock_product()
+                            run_command(back_stock_product)
 
                     case _:
                         print("Unknown command. Type MENU to see available commands.")

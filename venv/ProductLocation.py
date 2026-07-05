@@ -10,6 +10,12 @@ from MasterStockRoom import select_location_interactively, categories
 import Colorize
 import Messages as MSG
 
+def user_input(prompt):
+    value = input(prompt).strip()
+    if value.upper() in ("X", "CANCEL", "BACK"):
+        raise KeyboardInterrupt
+    return value
+
 
 def create_new_location_file(location):
     location_csv = Path(f'StockroomLocations/{location}.csv')
@@ -100,7 +106,7 @@ def audit_location():
 
     # Category selection
     while True:
-        choice = input("Enter number:\n").strip()
+        choice = user_input("Enter number:\n").strip()
         if choice.isdigit():
             choice = int(choice)
             if 1 <= choice <= len(categories):
