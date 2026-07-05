@@ -369,4 +369,35 @@ def get_next_product_number(category):
     next_item = highest + 1
     return f"{code}{str(next_item).zfill(2)}"
 
+def show_products_in_category():
+    global categories, master_inventory
+
+    print("Select a category to view its products:")
+    for i, (cat, code) in enumerate(categories, start=1):
+        print(f"{i}. {cat} ({code})")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(categories):
+                selected_cat, selected_code = categories[choice - 1]
+                break
+
+        print("Invalid selection.")
+
+    print(f"\nProducts in category: {selected_cat} ({selected_code})")
+
+    found = False
+    for product_num, product_data in master_inventory.items():
+        if product_num.startswith(selected_code):
+            for name, count in product_data.items():
+                print(f"{product_num} - {name} ({count})")
+                found = True
+
+    if not found:
+        print("No products found in this category.")
+
+
 
