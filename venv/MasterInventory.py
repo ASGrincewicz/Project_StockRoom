@@ -38,12 +38,32 @@ def add_single_product():
     print("Select a category:")
     for i, (cat, code) in enumerate(categories, start=1):
         print(f"{i}. {cat} ({code})")
+    print(f"{len(categories) + 1}. New Category")
 
     while True:
         choice = input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(categories):
-            category = categories[int(choice) - 1][0]
-            break
+
+        if choice.isdigit():
+            choice = int(choice)
+
+            # Existing category
+            if 1 <= choice <= len(categories):
+                category = categories[choice - 1][0]
+                break
+
+            # New category option
+            elif choice == len(categories) + 1:
+                new_cat = input("Enter new category name:\n").strip().upper()
+
+                # Generate next category code
+                next_code = str(len(categories) + 1).zfill(2)
+
+                categories.append((new_cat, next_code))
+                print(f"Added new category: {new_cat} ({next_code})")
+
+                category = new_cat
+                break
+
         print("Invalid selection.")
 
     # Step 2 — Product name
@@ -348,5 +368,36 @@ def get_next_product_number(category):
 
     next_item = highest + 1
     return f"{code}{str(next_item).zfill(2)}"
+
+def show_products_in_category():
+    global categories, master_inventory
+
+    print("Select a category to view its products:")
+    for i, (cat, code) in enumerate(categories, start=1):
+        print(f"{i}. {cat} ({code})")
+
+    while True:
+        choice = input("Enter number:\n").strip()
+
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(categories):
+                selected_cat, selected_code = categories[choice - 1]
+                break
+
+        print("Invalid selection.")
+
+    print(f"\nProducts in category: {selected_cat} ({selected_code})")
+
+    found = False
+    for product_num, product_data in master_inventory.items():
+        if product_num.startswith(selected_code):
+            for name, count in product_data.items():
+                print(f"{product_num} - {name} ({count})")
+                found = True
+
+    if not found:
+        print("No products found in this category.")
+
 
 

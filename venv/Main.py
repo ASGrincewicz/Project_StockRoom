@@ -20,7 +20,7 @@ def show_commands():
         + "READ: Import Master Inventory CSV.\n"
         + "SORT: Sort Master Inventory by product number.\n"
         + "WRITE: Write Master Inventory to CSV.\n"
-        + "SAVE: Save both Master Inventory and Stockroom categories.\n"
+        + "SAVE: Save both Master Inventory and Stockroom categories.\n\n"
 
         + Colorize.colorize_text_green("Product Management Commands:\n----------------------------\n")
         + "ADD: Add a new product.\n"
@@ -28,10 +28,12 @@ def show_commands():
         + "EDIT: Edit a product.\n"
         + "SEARCH: Search Master Inventory by name.\n"
         + "# SEARCH: Search Master Inventory by product number.\n\n"
+
         + Colorize.colorize_text_yellow("Category Management Commands:\n----------------------------\n")
         + "ADD CAT: Add a new category.\n"
         + "SET CAT: Set the categories(WARNING! Overwrites ALL categories!.\n"
         + "SHOW CAT: Show the categories.\n"
+        + "CAT PROD: Show products in a category.\n\n"
 
         + Colorize.colorize_text_orange("Location Management Commands:\n----------------------------\n")
         + "AUDIT: Show all products in a location.\n"
@@ -72,6 +74,9 @@ def main():
 
             case 'SHOW CAT':
                 print(categories)
+
+            case 'CAT PROD':
+                show_products_in_category()
 
             case 'BACK STOCK':
                 if args:
