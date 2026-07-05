@@ -38,12 +38,32 @@ def add_single_product():
     print("Select a category:")
     for i, (cat, code) in enumerate(categories, start=1):
         print(f"{i}. {cat} ({code})")
+    print(f"{len(categories) + 1}. New Category")
 
     while True:
         choice = input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(categories):
-            category = categories[int(choice) - 1][0]
-            break
+
+        if choice.isdigit():
+            choice = int(choice)
+
+            # Existing category
+            if 1 <= choice <= len(categories):
+                category = categories[choice - 1][0]
+                break
+
+            # New category option
+            elif choice == len(categories) + 1:
+                new_cat = input("Enter new category name:\n").strip().upper()
+
+                # Generate next category code
+                next_code = str(len(categories) + 1).zfill(2)
+
+                categories.append((new_cat, next_code))
+                print(f"Added new category: {new_cat} ({next_code})")
+
+                category = new_cat
+                break
+
         print("Invalid selection.")
 
     # Step 2 — Product name
