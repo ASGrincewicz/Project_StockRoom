@@ -2,13 +2,19 @@
 """
 Crash‑proof Location-Level Inventory Module
 """
-
+import os
 from pathlib import Path
 import csv
 from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively
-from MasterStockRoom import select_location_interactively
+from MasterStockRoom import select_location_interactively, categories
 import Colorize
 import Messages as MSG
+
+def user_input(prompt):
+    value = input(prompt).strip()
+    if value.upper() in ("X", "CANCEL", "BACK"):
+        raise KeyboardInterrupt
+    return value
 
 
 def create_new_location_file(location):
@@ -91,28 +97,73 @@ def read_location_file(location) -> dict:
     return products_in_loc_file
 
 
-def audit_location(location):
-    if not location:
+def audit_location():
+    global categories
+
+    print("Select a category to audit:")
+    for i, (cat, code) in enumerate(categories, start=1):
+        print(f"{i}. {cat} ({code})")
+
+    # Category selection
+    while True:
+        choice = user_input("Enter number:\n").strip()
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(categories):
+                selected_cat, selected_code = categories[choice - 1]
+                break
+        print("Invalid selection.")
+
+    # Load all locations for this category
+    loc_folder = f"locations/{selected_code}"
+
+    # Protection: no folder yet
+    if not os.path.exists(loc_folder):
+        print(f"No locations found for category {selected_cat}.")
         return
-    print(f"Selected location: {location}")
 
-    prod_in_loc = read_location_file(location)
+    loc_files = [f for f in os.listdir(loc_folder) if f.endswith(".csv")]
 
-    if not prod_in_loc:
-        print(MSG.location_empty())
+    # Protection: folder exists but no CSVs
+    if not loc_files:
+        print(f"No locations found for category {selected_cat}.")
         return
 
-    total = 0
+    print(f"\nLocations in category {selected_cat} ({selected_code}):")
+    for i, filename in enumerate(loc_files, start=1):
+        loc_name = filename.replace(".csv", "")
+        print(f"{i}. {loc_name}")
 
-    for num, name_dict in prod_in_loc.items():
-        for prod, amount in name_dict.items():
-            print(Colorize.colorize_text_orange(f'{num}: {prod}: Amount here: {amount}'))
-            try:
-                total += int(amount)
-            except ValueError:
-                print(f"Invalid amount '{amount}' in CSV.")
+    # Location selection
+    while True:
+        loc_choice = input("Select a location:\n").strip()
+        if loc_choice.isdigit():
+            loc_choice = int(loc_choice)
+            if 1 <= loc_choice <= len(loc_files):
+                selected_loc_file = loc_files[loc_choice - 1]
+                break
+        print("Invalid selection.")
 
-    print(f"Total Located Here: {total}")
+    # Load products from the selected location
+    loc_path = os.path.join(loc_folder, selected_loc_file)
+    print(f"\nProducts in location {selected_loc_file.replace('.csv','')}:")
+    found = False
+
+    try:
+        with open(loc_path, "r") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 3:
+                    product_num, name, count = row[0], row[1], row[2]
+                    print(f"{product_num} - {name} ({count})")
+                    found = True
+    except Exception as e:
+        print(f"Error reading location file: {e}")
+        return
+
+    if not found:
+        print("This location is empty.")
+
 
 
 def audit_product():

@@ -16,6 +16,11 @@ file_contents_written = False
 master_inventory = dict()
 categories = []
 
+def user_input(prompt):
+    value = input(prompt).strip()
+    if value.upper() in ("X", "CANCEL", "BACK"):
+        raise KeyboardInterrupt
+    return value
 
 def verify_prod_num(nums_to_check) -> bool:
     """
@@ -41,7 +46,7 @@ def add_single_product():
     print(f"{len(categories) + 1}. New Category")
 
     while True:
-        choice = input("Enter number:\n").strip()
+        choice = user_input("Enter number:\n").strip()
 
         if choice.isdigit():
             choice = int(choice)
@@ -67,7 +72,7 @@ def add_single_product():
         print("Invalid selection.")
 
     # Step 2 — Product name
-    name = input("Enter product name:\n").strip().upper()
+    name = user_input("Enter product name:\n").strip().upper()
 
     # Step 3 — Auto-increment product number
     prod_num = get_next_product_number(category)
@@ -76,7 +81,7 @@ def add_single_product():
         return
 
     # Step 4 — Initial count
-    count = input("Enter initial count:\n").strip()
+    count = user_input("Enter initial count:\n").strip()
     if not count.isdigit():
         print("Invalid count.")
         return
@@ -99,7 +104,7 @@ def add_multi_product_from_file(products_to_add):
             master_inventory[product.product_num] = {
                 product.product_name.upper(): product.on_hand_count
             }
-            print(f'{product.product_name.upper()} added.')
+            #print(f'{product.product_name.upper()} added.')
 
     except Exception as e:
         print("Error importing multiple products.")
@@ -157,7 +162,7 @@ def edit_product():
         product_num = input('Enter the Product number to edit:\n').strip().zfill(4)
 
         if product_num in master_inventory:
-            new_name = input('New Product name:\n').strip().upper()
+            new_name = user_input('New Product name:\n').strip().upper()
             if not new_name:
                 print("Invalid product name.")
                 return
@@ -181,7 +186,7 @@ def delete_product():
         product_num = input('Enter the Product number to delete:\n').strip().zfill(4)
         search_by_prod_num(product_num)
 
-        confirm = input("Confirm deletion? (Y/N):\n").strip().upper()
+        confirm = user_input("Confirm deletion? (Y/N):\n").strip().upper()
         if confirm == 'Y':
             master_inventory.pop(product_num, None)
             print(f"Product number {product_num} has been deleted.")
@@ -264,7 +269,7 @@ def select_product_interactively(term=None):
     Returns (product_num, product_name) or None.
     """
     if term is None:
-        term = input("Search for product:\n").strip().upper()
+        term = user_input("Search for product:\n").strip().upper()
     else:
         term = term.upper()
     matches = []
@@ -283,7 +288,7 @@ def select_product_interactively(term=None):
         print(f"{i}. {name} (#{num}) — On Hand: {count}")
 
     while True:
-        choice = input("Enter number:\n").strip()
+        choice = user_input("Enter number:\n").strip()
         if choice.isdigit():
             idx = int(choice)
             if 1 <= idx <= len(matches):
@@ -300,7 +305,7 @@ def set_categories():
 
     print("Enter categories. Type DONE when finished.")
     while True:
-        cat = input("Category:\n").strip()
+        cat = user_input("Category:\n").strip()
         if cat.upper() == "DONE":
             break
 
@@ -316,7 +321,7 @@ def add_categories():
 
     print("Enter categories to add. Type DONE when finished.")
     while True:
-        cat = input("Category:\n").strip()
+        cat = user_input("Category:\n").strip()
         if cat.upper() == "DONE":
             break
 
@@ -377,7 +382,7 @@ def show_products_in_category():
         print(f"{i}. {cat} ({code})")
 
     while True:
-        choice = input("Enter number:\n").strip()
+        choice = user_input("Enter number:\n").strip()
 
         if choice.isdigit():
             choice = int(choice)

@@ -15,6 +15,13 @@ from MasterInventory import categories
 
 master_stockroom_file = Path("master_stockroom_location.csv")
 
+def user_input(prompt):
+    value = input(prompt).strip()
+    if value.upper() in ("X", "CANCEL", "BACK"):
+        raise KeyboardInterrupt
+    return value
+
+
 # -----------------------------
 # Crash‑proof CSV read/write
 # -----------------------------
@@ -52,7 +59,7 @@ def read_from_stock_room_csv():
                 categories.append((cat, code))
                 row_number += 1
 
-        print(Colorize.colorize_text_blue("Stockroom categories imported."))
+        #print(Colorize.colorize_text_blue("Stockroom categories imported."))
 
     except Exception as e:
         print("Error reading Stockroom CSV.")
@@ -141,7 +148,7 @@ def select_location_interactively():
         print(f"{i}. {cat}")
 
     while True:
-        choice = input("Enter number:\n").strip()
+        choice = user_input("Enter number:\n").strip()
         if choice.isdigit() and 1 <= int(choice) <= len(categories):
             category = categories[int(choice) - 1]
             break
@@ -158,19 +165,19 @@ def select_location_interactively():
         print(f"{len(aisles)+1}. NEW AISLE")
 
         while True:
-            choice = input("Enter number:\n").strip()
+            choice = user_input("Enter number:\n").strip()
             if choice.isdigit():
                 choice = int(choice)
                 if 1 <= choice <= len(aisles):
                     aisle = aisles[choice - 1]
                     break
                 elif choice == len(aisles) + 1:
-                    aisle = input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+                    aisle = user_input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
                     break
             print("Invalid selection.")
     else:
         # No aisles exist yet for this category
-        aisle = input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+        aisle = user_input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
 
     # -----------------------------
     # Step 3 — Column
@@ -183,18 +190,18 @@ def select_location_interactively():
         print(f"{len(columns)+1}. NEW COLUMN")
 
         while True:
-            choice = input("Enter number:\n").strip()
+            choice = user_input("Enter number:\n").strip()
             if choice.isdigit():
                 choice = int(choice)
                 if 1 <= choice <= len(columns):
                     column = columns[choice - 1]
                     break
                 elif choice == len(columns) + 1:
-                    column = input("Enter new column (e.g., A):\n").strip().upper()
+                    column = user_input("Enter new column (e.g., A):\n").strip().upper()
                     break
             print("Invalid selection.")
     else:
-        column = input("\nEnter new column (e.g., A):\n").strip().upper()
+        column = user_input("\nEnter new column (e.g., A):\n").strip().upper()
 
     # -----------------------------
     # Step 4 — Row
@@ -207,18 +214,18 @@ def select_location_interactively():
         print(f"{len(rows)+1}. NEW ROW")
 
         while True:
-            choice = input("Enter number:\n").strip()
+            choice = user_input("Enter number:\n").strip()
             if choice.isdigit():
                 choice = int(choice)
                 if 1 <= choice <= len(rows):
                     row = rows[choice - 1]
                     break
                 elif choice == len(rows) + 1:
-                    row = input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
+                    row = user_input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
                     break
             print("Invalid selection.")
     else:
-        row = input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
+        row = user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
     return f"{category}-{aisle}-{column}-{row}"
 
@@ -260,7 +267,7 @@ def create_multiple_locations():
     Create multiple locations in a numeric range.
     Example: LD-01-A-01 through LD-01-A-10
     """
-    base = input("Enter base location prefix (e.g., LD-01-A-):\n").strip().upper()
+    base = user_input("Enter base location prefix (e.g., LD-01-A-):\n").strip().upper()
     if not base:
         print(MSG.invalid_input("Base prefix cannot be empty."))
         return
