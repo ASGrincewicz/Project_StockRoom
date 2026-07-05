@@ -52,7 +52,7 @@ def read_from_stock_room_csv():
                 categories.append((cat, code))
                 row_number += 1
 
-        print(Colorize.colorize_text_blue("Stockroom categories imported."))
+        #print(Colorize.colorize_text_blue("Stockroom categories imported."))
 
     except Exception as e:
         print("Error reading Stockroom CSV.")

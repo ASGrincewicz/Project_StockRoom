@@ -109,8 +109,7 @@ def main():
                 read_from_stock_room_csv()
 
             case 'AUDIT':
-                location = select_location_interactively()
-                audit_location(location)
+                audit_location()
 
             case 'SAVE':
                 write_to_master_inventory_csv()

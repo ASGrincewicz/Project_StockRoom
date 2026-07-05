@@ -99,7 +99,7 @@ def add_multi_product_from_file(products_to_add):
             master_inventory[product.product_num] = {
                 product.product_name.upper(): product.on_hand_count
             }
-            print(f'{product.product_name.upper()} added.')
+            #print(f'{product.product_name.upper()} added.')
 
     except Exception as e:
         print("Error importing multiple products.")
