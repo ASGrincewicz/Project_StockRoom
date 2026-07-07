@@ -114,17 +114,20 @@ def audit_location():
                 break
         print("Invalid selection.")
 
-    # Load all locations for this category
-    loc_folder = f"locations/{selected_code}"
+    # Correct folder
+    loc_folder = "StockroomLocations"
 
-    # Protection: no folder yet
+    # Load all locations for this category
     if not os.path.exists(loc_folder):
         print(f"No locations found for category {selected_cat}.")
         return
 
-    loc_files = [f for f in os.listdir(loc_folder) if f.endswith(".csv")]
+    # Filter only this category's locations
+    loc_files = [
+        f for f in os.listdir(loc_folder)
+        if f.startswith(selected_code + "-") and f.endswith(".csv")
+    ]
 
-    # Protection: folder exists but no CSVs
     if not loc_files:
         print(f"No locations found for category {selected_cat}.")
         return
@@ -136,7 +139,7 @@ def audit_location():
 
     # Location selection
     while True:
-        loc_choice = input("Select a location:\n").strip()
+        loc_choice = user_input("Select a location:\n").strip()
         if loc_choice.isdigit():
             loc_choice = int(loc_choice)
             if 1 <= loc_choice <= len(loc_files):
@@ -163,7 +166,6 @@ def audit_location():
 
     if not found:
         print("This location is empty.")
-
 
 
 def audit_product():

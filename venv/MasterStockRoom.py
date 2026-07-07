@@ -14,6 +14,9 @@ import Colorize
 from MasterInventory import categories
 
 master_stockroom_file = Path("master_stockroom_location.csv")
+MAX_AISLES = 20 # 01-20
+MAX_COLUMNS = 10   # A–J
+MAX_ROWS = 20      # 01–20
 
 def user_input(prompt):
     value = input(prompt).strip()
@@ -305,41 +308,83 @@ def create_new_location():
 
 
 def create_multiple_locations():
-    """
-    Create multiple locations in a numeric range.
-    Example: LD-01-A-01 through LD-01-A-10
-    """
-    base = user_input("Enter base location prefix (e.g., LD-01-A-):\n").strip().upper()
-    if not base:
-        print(MSG.invalid_input("Base prefix cannot be empty."))
+    global categories
+
+    index = build_location_index()
+
+    # Step 1 — Category
+    category = select_category(categories)
+    cat_name, cat_code = category
+
+    # Step 2 — Aisle
+    aisle = select_aisle(index, cat_code)
+
+    # Aisle cap enforcement
+    aisle_int = int(aisle)
+    if aisle_int < 1 or aisle_int > MAX_AISLES:
+        print(f"Aisle exceeds max allowed aisle ({MAX_AISLES}).")
         return
 
-    start, end = MSG.get_range_input()
+    # Step 3 — Column range
+    print("\nEnter column range (e.g., A to D):")
+    start_col = user_input("Start column:\n").strip().upper()
+    end_col = user_input("End column:\n").strip().upper()
 
-    try:
-        for i in range(start, end + 1):
-            loc = f"{base}{str(i).zfill(2)}"
-            loc_path = Path(f"StockroomLocations/{loc}.csv")
-            loc_path.parent.mkdir(exist_ok=True)
+    start_col_ord = ord(start_col)
+    end_col_ord = ord(end_col)
 
-            if loc_path.exists():
-                print(Colorize.colorize_text_orange(f"{loc} already exists. Skipping."))
+    # Cap enforcement
+    if start_col_ord < ord('A') or start_col_ord > ord('A') + (MAX_COLUMNS - 1):
+        print(f"Start column exceeds max allowed column ({MAX_COLUMNS}).")
+        return
+
+    if end_col_ord < ord('A') or end_col_ord > ord('A') + (MAX_COLUMNS - 1):
+        print(f"End column exceeds max allowed column ({MAX_COLUMNS}).")
+        return
+
+    if end_col_ord < start_col_ord:
+        print("Invalid column range.")
+        return
+
+        # Step 4 — Row range
+    print("\nEnter row range (e.g., 01 to 20):")
+    start_row = int(user_input("Start row:\n").strip())
+    end_row = int(user_input("End row:\n").strip())
+
+    # Row cap enforcement
+    if start_row < 1 or start_row > MAX_ROWS:
+        print(f"Start row exceeds max allowed row ({MAX_ROWS}).")
+        return
+
+    if end_row < 1 or end_row > MAX_ROWS:
+        print(f"End row exceeds max allowed row ({MAX_ROWS}).")
+        return
+
+    if end_row < start_row:
+        print("Invalid row range.")
+        return
+
+
+    created = 0
+    skipped = 0
+
+    for col_ord in range(start_col_ord, end_col_ord + 1):
+        column = chr(col_ord)
+
+        for row_int in range(start_row, end_row + 1):
+            row = str(row_int).zfill(2)
+            loc = f"{cat_code}-{aisle}-{column}-{row}"
+            file_path = Path("StockroomLocations") / f"{loc}.csv"
+
+            if file_path.exists():
+                skipped += 1
                 continue
 
-            with open(loc_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["Product #", "Product Name", "Amount"])
+            # Create the file
+            with open(file_path, "w") as f:
+                f.write("Product #,Product Name,Amount\n")
 
-            print(Colorize.colorize_text_blue(f"Created: {loc}"))
+            created += 1
 
-    except Exception:
-        print("Error creating multiple locations.")
-
-
-# -----------------------------
-# Utility
-# -----------------------------
-
-
-
-
+    print(f"\nCreated {created} new locations.")
+    print(f"Skipped {skipped} existing locations.")
