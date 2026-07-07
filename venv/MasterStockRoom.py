@@ -174,45 +174,40 @@ def compute_next_location(index, category, max_rows=20, max_columns=10, max_aisl
     return None, f"Aisle limit reached ({max_aisles})."
 
 
+def select_from_list(options, prompt, new_label="NEW"):
+    """
+    Generic numbered selector.
+    options: list of existing items (strings)
+    prompt: text to show before listing options
+    new_label: label for the 'new' option (e.g., NEW AISLE)
+    """
+    print(f"\n{prompt}")
+    for i, item in enumerate(options, start=1):
+        print(f"{i}. {item}")
+    print(f"{len(options) + 1}. {new_label}")
+
+    while True:
+        choice = user_input("Enter number:\n").strip()
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(options):
+                return options[choice - 1], False  # selected existing
+            elif choice == len(options) + 1:
+                return None, True  # user wants NEW
+        print("Invalid selection.")
 
 
 def select_location_interactively():
-    """Hybrid hierarchical selector that supports new categories."""
     global categories
 
     index = build_location_index()
 
-    # -----------------------------
-    # Step 1 — Category (from categories list)
-    # -----------------------------
-    print("\nSelect a category:")
-    for i, cat in enumerate(categories, start=1):
-        print(f"{i}. {cat}")
-    print(f"{len(categories) + 1}. NEW CATEGORY")
+    # Step 1 — Category
+    category = select_category(categories)
+    cat_name, cat_code = category
 
-    while True:
-        choice = user_input("Enter number:\n").strip()
-
-        if choice.isdigit():
-            choice = int(choice)
-            if 1 <= choice <= len(categories):
-                category = categories[choice - 1]
-                break
-            elif choice == len(categories) + 1:
-                # Create new category
-                name = user_input("Enter new category name:\n").strip().upper()
-
-                # Auto-assign next code
-                next_code = str(len(categories) + 1).zfill(2)
-
-                category = (name, next_code)
-                categories.append(category)
-                write_to_stock_room_csv()
-                break
-
-        print("Invalid selection.")
+    # Step 2 — Next-location suggestion
     suggested, cap_message = compute_next_location(index, category)
-
     if suggested:
         if cap_message:
             print(f"\n{cap_message}")
@@ -221,83 +216,62 @@ def select_location_interactively():
         if yn == "Y":
             return suggested
 
-    # -----------------------------
-    # Step 2 — Aisle
-    # -----------------------------
-    if category in index:
-        aisles = sorted(index[category].keys())
-        print("\nSelect an aisle:")
-        for i, aisle in enumerate(aisles, start=1):
-            print(f"{i}. {aisle}")
-        print(f"{len(aisles)+1}. NEW AISLE")
+    # Step 3 — Manual selection
+    aisle = select_aisle(index, cat_code)
+    column = select_column(index, cat_code, aisle)
+    row = select_row(index, cat_code, aisle, column)
 
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(aisles):
-                    aisle = aisles[choice - 1]
-                    break
-                elif choice == len(aisles) + 1:
-                    aisle = user_input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
-                    break
-            print("Invalid selection.")
-    else:
-        # No aisles exist yet for this category
-        aisle = user_input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
-
-    # -----------------------------
-    # Step 3 — Column
-    # -----------------------------
-    if category in index and aisle in index[category]:
-        columns = sorted(index[category][aisle].keys())
-        print("\nSelect a column:")
-        for i, col in enumerate(columns, start=1):
-            print(f"{i}. {col}")
-        print(f"{len(columns)+1}. NEW COLUMN")
-
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(columns):
-                    column = columns[choice - 1]
-                    break
-                elif choice == len(columns) + 1:
-                    column = user_input("Enter new column (e.g., A):\n").strip().upper()
-                    break
-            print("Invalid selection.")
-    else:
-        column = user_input("\nEnter new column (e.g., A):\n").strip().upper()
-
-    # -----------------------------
-    # Step 4 — Row
-    # -----------------------------
-    if category in index and aisle in index[category] and column in index[category][aisle]:
-        rows = sorted(index[category][aisle][column])
-        print("\nSelect a row:")
-        for i, row in enumerate(rows, start=1):
-            print(f"{i}. {row}")
-        print(f"{len(rows)+1}. NEW ROW")
-
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(rows):
-                    row = rows[choice - 1]
-                    break
-                elif choice == len(rows) + 1:
-                    row = user_input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
-                    break
-            print("Invalid selection.")
-    else:
-        row = user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
-
-    cat_name, cat_code = category
     return f"{cat_code}-{aisle}-{column}-{row}"
 
+def select_category(categories):
+    # Use the generic selector
+    selected, is_new = select_from_list(
+        categories,
+        "Select a category:",
+        "NEW CATEGORY"
+    )
 
+    # Existing category selected
+    if not is_new:
+        return selected
+
+    # Create new category
+    name = user_input("Enter new category name:\n").strip().upper()
+    next_code = str(len(categories) + 1).zfill(2)
+    category = (name, next_code)
+    categories.append(category)
+    write_to_stock_room_csv()
+    return category
+
+def select_aisle(index, cat_code):
+    if cat_code in index:
+        aisles = sorted(index[cat_code].keys(), key=lambda x: int(x))
+        aisle, is_new = select_from_list(aisles, "Select an aisle:", "NEW AISLE")
+        if not is_new:
+            return aisle
+        return user_input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+    else:
+        return user_input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+
+def select_column(index, cat_code, aisle):
+    if cat_code in index and aisle in index[cat_code]:
+        columns = sorted(index[cat_code][aisle].keys())
+        column, is_new = select_from_list(columns, "Select a column:", "NEW COLUMN")
+        if not is_new:
+            return column
+        return user_input("Enter new column (e.g., A):\n").strip().upper()
+    else:
+        return user_input("\nEnter new column (e.g., A):\n").strip().upper()
+
+def select_row(index, cat_code, aisle, column):
+    if cat_code in index and aisle in index[cat_code] and column in index[cat_code][aisle]:
+        rows = sorted(index[cat_code][aisle][column], key=lambda x: int(x))
+        row, is_new = select_from_list(rows, "Select a row:", "NEW ROW")
+        if not is_new:
+            return row
+        return user_input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
+    else:
+        return user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
 # -----------------------------
 # Location Creation
