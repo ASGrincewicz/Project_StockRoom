@@ -2,13 +2,13 @@
 """
 Crash‑proof Location-Level Inventory Module
 """
+import csv
 import os
 from pathlib import Path
-import csv
-from MasterInventory import search_by_prod_num, verify_prod_num, update_product_location,select_product_interactively
-from MasterStockRoom import select_location_interactively, categories
-import Colorize
+
+import MasterStockRoom as MSR
 import Messages as MSG
+import MasterInventory
 
 def user_input(prompt):
     value = input(prompt).strip()
@@ -98,10 +98,8 @@ def read_location_file(location) -> dict:
 
 
 def audit_location():
-    global categories
-
     print("Select a category to audit:")
-    for i, (cat, code) in enumerate(categories, start=1):
+    for i, (cat, code) in enumerate(MasterInventory.categories, start=1):
         print(f"{i}. {cat} ({code})")
 
     # Category selection
@@ -109,8 +107,8 @@ def audit_location():
         choice = user_input("Enter number:\n").strip()
         if choice.isdigit():
             choice = int(choice)
-            if 1 <= choice <= len(categories):
-                selected_cat, selected_code = categories[choice - 1]
+            if 1 <= choice <= len(MasterInventory.categories):
+                selected_cat, selected_code = MasterInventory.categories[choice - 1]
                 break
         print("Invalid selection.")
 
@@ -169,131 +167,185 @@ def audit_location():
 
 
 def audit_product():
-    selection = select_product_interactively()
+    selection = MasterInventory.select_product_interactively()
     if not selection:
         return
     product_num, product_name = selection
 
-    location = select_location_interactively()
+    location = MSR.select_location_interactively()
     if not location:
         return
 
     amount = MSG.get_amount_input()
 
+def backstock_product_interactive():
+    # Ask user to search for a product
+    term = user_input("Search for product:\n").strip()
+    MasterInventory.search_inventory(term)
 
-def back_stock_product(term=None):
-    # Step 1 — Product selection
-    if term:
-        selection = select_product_interactively(term)
-    else:
-        selection = select_product_interactively()
 
-    if not selection:
-        return
+def backstock_product(sku, name):
+    try:
+        print(f"\nBackstocking {sku} — {name}")
 
-    product_num, product_name = selection
-    print(f"Selected: {product_name} (#{product_num})")
+        # Get current on-hand
+        current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
 
-    location = select_location_interactively()
-    if not location:
-        return
-    print(f"Selected location: {location}")
+        print(f"Current On Hand: {current_on_hand}")
 
-    amount = MSG.get_amount_input(False)
-
-    location_csv = Path(f'StockroomLocations/{location}.csv')
-    if not location_csv.exists():
-        print(MSG.file_not_found())
-        return
-
-    confirmation = 'N'
-    product = None
-
-    while confirmation != 'Y':
-        if not verify_prod_num({product_num}):
-            product = search_by_prod_num(product_num)
-            if not product:
-                print(MSG.product_not_found())
-                return
-
-            print(Colorize.colorize_text_blue(f'{amount} of {product[0]} will be placed in {location}.'))
-            confirmation = input('Confirm? Enter Y or N\n').strip().upper()
-        else:
-            print(MSG.product_not_found())
+        # Ask amount
+        try:
+            amount = int(user_input("Enter amount:\n").strip())
+        except ValueError:
+            print("Amount must be a number.")
             return
 
-    update_product_location(True, product_num, location)
+        # Category selection
+        category = MSR.select_category(MasterInventory.categories)
+        cat_name, cat_code = category
 
-    prod_in_loc_file = read_location_file(location)
+        # Aisle selection
+        index = MSR.build_location_index()
+        aisle = MSR.select_aisle(index, cat_code)
 
-    if product_num in prod_in_loc_file:
-        name, count = list(prod_in_loc_file[product_num].items())[0]
-        try:
-            amount += int(count)
-        except ValueError:
-            print("Invalid count in CSV. Using only new amount.")
-        prod_in_loc_file[product_num] = {name: amount}
-    else:
-        prod_in_loc_file[product_num] = {product[0]: amount}
+        # Column selection
+        column = MSR.select_column(index, cat_code, aisle)
 
-    overwrite_location_file(location, prod_in_loc_file, amount, product_num)
+        # Row selection
+        row = MSR.select_row(index, cat_code, aisle, column)
+
+        loc = f"{cat_code}-{aisle}-{column}-{row}"
+        file_path = Path("StockroomLocations") / f"{loc}.csv"
+
+        # Ensure file exists
+        if not file_path.exists():
+            with open(file_path, "w") as f:
+                f.write("SKU,DESCRIPTION,ON_HAND\n")
+
+        # Update location file
+        updated = False
+        rows = []
+
+        with open(file_path, "r") as f:
+            reader = csv.reader(f)
+            for r in reader:
+                rows.append(r)
+
+        for r in rows:
+            if len(r) >= 3 and r[0] == sku:
+                r[2] = str(int(r[2]) + amount)
+                updated = True
+
+        if not updated:
+            rows.append([sku, name, str(amount)])
+
+        with open(file_path, "w") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+
+        # Backstocking moves stock from the salesfloor into a location; the
+        # total on-hand count is unchanged, so master inventory stays as-is.
+
+        print(f"\n{amount} of {name} placed in {loc}.")
+        print(f"On Hand: {current_on_hand}")
+
+    except Exception as e:
+        print(f"Error in backstock_product: {e}")
 
 
-def remove_product():
-    selection = select_product_interactively()
-    if not selection:
-        return
-    product_num, product_name = selection
-    print(f"Selected: {product_name} (#{product_num})")
 
-    location = select_location_interactively()
-    if not location:
-        return
-    print(f"Selected location: {location}")
-
-    amount = MSG.get_amount_input(True)
-
-    prod_in_loc = read_location_file(location)
-
-    if product_num not in prod_in_loc:
-        print(MSG.product_not_found())
-        return
-
-    name, count = list(prod_in_loc[product_num].items())[0]
+def remove_product(sku, name):
 
     try:
-        initial_count = int(count)
-    except ValueError:
-        print("Invalid count in CSV. Cannot remove.")
-        return
+        print(f"\nRemoving product {sku} — {name}")
 
-    if amount < 0:
-        amount = initial_count
+        # Current on-hand
+        current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
+        print(f"Current On Hand: {current_on_hand}")
 
-    if amount > initial_count:
-        print(f'This location contains only {initial_count}.')
-        return
+        # Ask amount
+        try:
+            amount = int(user_input("Enter amount to remove:\n").strip())
+        except ValueError:
+            print("Amount must be a number.")
+            return
 
-    new_count = initial_count - amount
+        # Category code
+        cat_code = sku[:2]
 
-    if new_count <= 0:
-        update_product_location(False, product_num, location)
+        # Find matching category locations
+        loc_folder = "StockroomLocations"
+        all_locations = os.listdir(loc_folder)
 
-    print(Colorize.colorize_text_blue(f"Taking: {amount} | {name} of {initial_count}"))
+        loc_files = [
+            f for f in all_locations
+            if f.startswith(cat_code + "-") and f.endswith(".csv")
+        ]
 
-    prod_in_loc[product_num] = {name: new_count}
+        if not loc_files:
+            print("No backstock locations found for this product.")
+            return
 
-    overwrite_location_file(location, prod_in_loc, new_count, product_num)
+        print("\nSelect a location to remove from:")
+        for i, file in enumerate(loc_files, start=1):
+            print(f"{i}. {file.replace('.csv','')}")
+
+        while True:
+            choice = user_input("Enter number:\n").strip()
+            if choice.isdigit():
+                choice = int(choice)
+                if 1 <= choice <= len(loc_files):
+                    break
+            print("Invalid selection.")
+
+        selected_file = loc_files[choice - 1]
+        loc_path = os.path.join(loc_folder, selected_file)
+
+        # Load location file
+        rows = []
+        with open(loc_path, "r") as f:
+            reader = csv.reader(f)
+            for r in reader:
+                rows.append(r)
+
+        # Update location file
+        updated = False
+        for r in rows:
+            if len(r) >= 3 and r[0] == sku:
+                qty = int(r[2])
+                if qty < amount:
+                    print("Not enough stock in this location.")
+                    return
+                r[2] = str(qty - amount)
+                updated = True
+
+        if not updated:
+            print("Product not found in this location.")
+            return
+
+        # Write updated location file
+        with open(loc_path, "w") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+
+        # Update master inventory
+        MasterInventory.master_inventory[sku] = {name: current_on_hand - amount}
+
+        print(f"\nRemoved {amount} from {selected_file.replace('.csv','')}.")
+        print(f"New On Hand: {current_on_hand - amount}")
+
+    except Exception as e:
+        print(f"Error in remove_product: {e}")
 
 
 def get_product_amount() -> int:
-    location = select_location_interactively()
+    location = MSR.select_location_interactively()
     if not location:
         return 0
     print(f"Selected location: {location}")
 
     prod_in_loc = read_location_file(location)
-    selection = select_product_interactively()
+    selection = MasterInventory.select_product_interactively()
     if not selection:
         return 0
     product_num, product_name = selection

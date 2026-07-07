@@ -88,12 +88,14 @@ def main():
             case 'CAT PROD':
                 run_command(show_products_in_category)
 
-            case 'BACK STOCK':
+            case 'BACKSTOCK':
                 if args:
-                    term = " ".join(args)
-                    run_command(back_stock_product(term))
+                    # Treat args as product number
+                    product_num = args[0].zfill(4)
+                    search_by_prod_num(product_num)
                 else:
-                   run_command(back_stock_product())
+                    # Launch interactive backstock flow
+                    backstock_product_interactive()
 
             case 'TAKE STOCK':
                 if args:
@@ -175,10 +177,12 @@ def main():
 
                     case 'BACKSTOCK':
                         if args:
-                            term = " ".join(args)
-                            run_command(back_stock_product(term))
+                            # Treat args as product number
+                            product_num = args[0].zfill(4)
+                            search_by_prod_num(product_num)
                         else:
-                            run_command(back_stock_product)
+                            # Launch interactive backstock flow
+                            backstock_product_interactive()
 
                     case _:
                         print("Unknown command. Type MENU to see available commands.")

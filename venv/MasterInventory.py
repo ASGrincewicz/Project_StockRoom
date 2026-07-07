@@ -4,6 +4,8 @@ Crash‑proof Master Inventory Module
 """
 
 import csv
+import os
+
 import Colorize
 from Product import Product
 from pathlib import Path
@@ -15,6 +17,12 @@ file_contents_written = False
 
 master_inventory = dict()
 categories = []
+
+# Imported after `categories` is defined so the circular chain
+# (MasterStockRoom -> MasterInventory -> ProductLocation -> MasterStockRoom)
+# can resolve `from MasterInventory import categories` regardless of entry point.
+# ProductLocation is only referenced at call time, so a late import is safe.
+import ProductLocation
 
 def user_input(prompt):
     value = input(prompt).strip()
@@ -114,38 +122,215 @@ def add_multi_product_from_file(products_to_add):
 
 
 def search_inventory(term):
-    term = term.upper()
-    results = []
+    term = term.lower()
+    matches = []
 
-    for prod_num, name_dict in master_inventory.items():
-        for name, count in name_dict.items():
-            if term in name:
-                results.append((prod_num, name, count))
+    # Load master inventory
+    with open("master_inventory.csv", "r") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 3:
+                sku, name, on_hand = row[0], row[1], row[2]
+                if term in sku.lower() or term in name.lower():
+                    matches.append((sku, name, int(on_hand)))
 
-    if not results:
-        print("Search Results: 0")
+    if not matches:
+        print("No matching products found.")
         return
 
-    print("Search Results:")
-    for prod_num, name, count in results:
-        print(f"{prod_num}: {name} — On Hand: {count}")
+    print("\nSearch Results:")
+    for i, (sku, name, _) in enumerate(matches, start=1):
+        print(f"{i}. {sku} — {name}")
 
+    # Select a product
+    while True:
+        choice = user_input("Select a product:\n").strip()
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(matches):
+                break
+        print("Invalid selection.")
+
+    sku, name, master_qty = matches[choice - 1]
+
+    # Category lookup
+    cat_lookup = {code: name for (name, code) in categories}
+    cat_code = sku[:2]
+    cat_name = cat_lookup.get(cat_code, "UNKNOWN")
+
+    # Load backstock locations for this category only
+    loc_folder = "StockroomLocations"
+    all_locations = os.listdir(loc_folder) if os.path.exists(loc_folder) else []
+
+    locs = []
+    total_loc_qty = 0
+
+    for file in all_locations:
+        if not file.endswith(".csv"):
+            continue
+        if not file.startswith(cat_code + "-"):
+            continue
+
+        loc_path = os.path.join(loc_folder, file)
+
+        try:
+            with open(loc_path, "r") as lf:
+                reader = csv.reader(lf)
+                for row in reader:
+                    if len(row) >= 3 and row[0] == sku:
+                        qty = int(row[2])
+                        locs.append((file.replace(".csv", ""), qty))
+                        total_loc_qty += qty
+        except:
+            pass
+
+    # Salesfloor calculation
+    salesfloor_qty = master_qty - total_loc_qty
+    if salesfloor_qty < 0:
+        salesfloor_qty = 0
+
+    # Detailed view
+    print("\n" + "-"*40)
+    print(f"SKU: {sku}")
+    print(f"Name: {name}")
+    print(f"Category: {cat_name} ({cat_code})")
+    print(f"Master On Hand: {master_qty}")
+
+    if locs:
+        print("\nBackstock Locations:")
+        for loc, qty in locs:
+            print(f" - {loc}: {qty}")
+    else:
+        print("\nBackstock Locations: None")
+
+    print(f"\nTotal Backstock: {total_loc_qty}")
+    print(f"Salesfloor: {salesfloor_qty}")
+    print("-"*40 + "\n")
+
+    # Action menu
+    print("Actions:")
+    print("1. Backstock")
+    print("2. Take")
+    print("3. Edit")
+    print("4. Audit")
+    print("5. Cancel")
+
+    while True:
+        action = user_input("Select an action:\n").strip()
+        if action == "1":
+            ProductLocation.backstock_product(sku, name)
+            return
+        elif action == "2":
+            ProductLocation.remove_product(sku, name)
+            return
+        elif action == "3":
+            edit_product(sku, name)
+            return
+        elif action == "4":
+            ProductLocation.audit_location()
+            return
+        elif action == "5":
+            print("Cancelled.")
+            return
+        else:
+            print("Invalid selection.")
 
 
 def search_by_prod_num(product_num):
     try:
         product_num = product_num.zfill(4)
 
-        if product_num in master_inventory:
-            for name, on_hand in master_inventory[product_num].items():
-                print(f'Result: {product_num}: {name}, On Hand: {on_hand}')
-                return name, on_hand
+        if product_num not in master_inventory:
+            print("Item not found.")
+            return None
 
-        print('Item not found.')
-        return None
+        # Extract name + on-hand from master inventory
+        name, master_qty = next(iter(master_inventory[product_num].items()))
 
-    except Exception:
-        print("Error searching by product number.")
+        # Category lookup
+        cat_lookup = {code: name for (name, code) in categories}
+        cat_code = product_num[:2]
+        cat_name = cat_lookup.get(cat_code, "UNKNOWN")
+
+        # Load backstock locations for this category only
+        loc_folder = "StockroomLocations"
+        all_locations = os.listdir(loc_folder) if os.path.exists(loc_folder) else []
+
+        locs = []
+        total_loc_qty = 0
+
+        for file in all_locations:
+            if not file.endswith(".csv"):
+                continue
+            if not file.startswith(cat_code + "-"):
+                continue
+
+            loc_path = os.path.join(loc_folder, file)
+
+            try:
+                with open(loc_path, "r") as lf:
+                    reader = csv.reader(lf)
+                    for row in reader:
+                        if len(row) >= 3 and row[0] == product_num:
+                            qty = int(row[2])
+                            locs.append((file.replace(".csv", ""), qty))
+                            total_loc_qty += qty
+            except:
+                pass
+
+        # Salesfloor calculation
+        salesfloor_qty = master_qty - total_loc_qty
+        if salesfloor_qty < 0:
+            salesfloor_qty = 0
+
+        # Detailed view
+        print("\n" + "-"*40)
+        print(f"SKU: {product_num}")
+        print(f"Name: {name}")
+        print(f"Category: {cat_name} ({cat_code})")
+        print(f"Master On Hand: {master_qty}")
+
+        if locs:
+            print("\nBackstock Locations:")
+            for loc, qty in locs:
+                print(f" - {loc}: {qty}")
+        else:
+            print("\nBackstock Locations: None")
+
+        print(f"\nTotal Backstock: {total_loc_qty}")
+        print(f"Salesfloor: {salesfloor_qty}")
+        print("-"*40 + "\n")
+
+        # Action menu
+        print("Actions:")
+        print("1. Backstock")
+        print("2. Take")
+        print("3. Edit")
+        print("4. Audit")
+        print("5. Cancel")
+
+        while True:
+            action = user_input("Select an action:\n").strip()
+            if action == "1":
+                ProductLocation.backstock_product(product_num, name)
+                return
+            elif action == "2":
+                ProductLocation.remove_product(product_num, name)
+                return
+            elif action == "3":
+                edit_product(product_num, name)
+                return
+            elif action == "4":
+                ProductLocation.audit_location()
+                return
+            elif action == "5":
+                print("Cancelled.")
+                return
+            else:
+                print("Invalid selection.")
+
+    except Exception as e:
+        print(f"Error searching by product number: {e}")
         return None
 
 
@@ -157,28 +342,44 @@ def sort_inventory_by_prod_num() -> list:
         return []
 
 
-def edit_product():
+def edit_product(sku, name):
     try:
-        product_num = input('Enter the Product number to edit:\n').strip().zfill(4)
+        # Show current values
+        print(f"\nEditing Product {sku}")
+        print(f"Current Name: {name}")
 
-        if product_num in master_inventory:
-            new_name = user_input('New Product name:\n').strip().upper()
-            if not new_name:
-                print("Invalid product name.")
-                return
+        current_on_hand = master_inventory.get(sku, {}).get(name, None)
+        if current_on_hand is None:
+            print("Error: Product not found in master inventory.")
+            return
 
+        print(f"Current On Hand: {current_on_hand}")
+
+        # New name
+        new_name = user_input("New Product name (leave blank to keep current):\n").strip().upper()
+        if not new_name:
+            new_name = name  # keep current
+
+        # New on-hand
+        new_on_hand_input = user_input("New On Hand count (leave blank to keep current):\n").strip()
+        if new_on_hand_input:
             try:
-                new_on_hand = int(input('New On Hand count:\n').strip())
+                new_on_hand = int(new_on_hand_input)
             except ValueError:
                 print("On-hand count must be a number.")
                 return
-
-            master_inventory[product_num] = {new_name: new_on_hand}
         else:
-            print('Product not found. Have you imported the Master Inventory?')
+            new_on_hand = current_on_hand  # keep current
 
-    except Exception:
-        print("Error editing product.")
+        # Update master inventory
+        master_inventory[sku] = {new_name: new_on_hand}
+
+        print(f"\nUpdated {sku}:")
+        print(f"Name: {new_name}")
+        print(f"On Hand: {new_on_hand}")
+
+    except Exception as e:
+        print(f"Error editing product: {e}")
 
 
 def delete_product():
