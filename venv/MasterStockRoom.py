@@ -146,12 +146,27 @@ def select_location_interactively():
     print("\nSelect a category:")
     for i, cat in enumerate(categories, start=1):
         print(f"{i}. {cat}")
+    print(f"{len(categories) + 1}. NEW CATEGORY")
 
     while True:
         choice = user_input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(categories):
-            category = categories[int(choice) - 1]
-            break
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(categories):
+                category = categories[choice - 1]
+                break
+            elif choice == len(categories) + 1:
+                # Create new category
+                name = user_input("Enter new category name:\n").strip().upper()
+
+                # Auto-assign next code
+                next_code = str(len(categories) + 1).zfill(2)
+
+                category = (name, next_code)
+                categories.append(category)
+                write_to_stock_room_csv()
+                break
+
         print("Invalid selection.")
 
     # -----------------------------
