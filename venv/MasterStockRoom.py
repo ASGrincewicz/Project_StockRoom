@@ -133,6 +133,48 @@ def build_location_index():
 
     return index
 
+def compute_next_location(index, category, max_rows=20, max_columns=10, max_aisles=30):
+    cat_name, cat_code = category  # ("PET", "03")
+
+    # If no locations exist yet for this category
+    if cat_code not in index or not index[cat_code]:
+        return f"{cat_code}-01-A-01", None
+
+    # Aisles are numeric strings: "01", "02", ...
+    aisles = sorted(index[cat_code].keys(), key=lambda x: int(x))
+    last_aisle = aisles[-1]
+
+    # Columns are letters: A, B, C...
+    columns = sorted(index[cat_code][last_aisle].keys())
+    last_column = columns[-1]
+
+    # Rows are numeric strings: "01", "02", ...
+    rows = sorted(index[cat_code][last_aisle][last_column], key=lambda x: int(x))
+    last_row = rows[-1]
+
+    # --- Row cap check ---
+    next_row_int = int(last_row) + 1
+    if next_row_int <= max_rows:
+        next_row = str(next_row_int).zfill(2)
+        return f"{cat_code}-{last_aisle}-{last_column}-{next_row}", None
+
+    # --- Column cap check ---
+    next_column_ord = ord(last_column) + 1
+    if (next_column_ord - ord('A') + 1) <= max_columns:
+        next_column = chr(next_column_ord)
+        return f"{cat_code}-{last_aisle}-{next_column}-01", f"Row limit reached for column {last_column}."
+
+    # --- Aisle cap check ---
+    next_aisle_int = int(last_aisle) + 1
+    if next_aisle_int <= max_aisles:
+        next_aisle = str(next_aisle_int).zfill(2)
+        return f"{cat_code}-{next_aisle}-A-01", f"Column limit reached for aisle {last_aisle}."
+
+    # No more locations possible
+    return None, f"Aisle limit reached ({max_aisles})."
+
+
+
 
 def select_location_interactively():
     """Hybrid hierarchical selector that supports new categories."""
@@ -150,6 +192,7 @@ def select_location_interactively():
 
     while True:
         choice = user_input("Enter number:\n").strip()
+
         if choice.isdigit():
             choice = int(choice)
             if 1 <= choice <= len(categories):
@@ -168,6 +211,15 @@ def select_location_interactively():
                 break
 
         print("Invalid selection.")
+    suggested, cap_message = compute_next_location(index, category)
+
+    if suggested:
+        if cap_message:
+            print(f"\n{cap_message}")
+        print(f"Next suggested location: {suggested}")
+        yn = user_input("Create this location? (Y/N): ").strip().upper()
+        if yn == "Y":
+            return suggested
 
     # -----------------------------
     # Step 2 — Aisle
