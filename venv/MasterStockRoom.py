@@ -6,7 +6,7 @@ Manages:
 - Location creation (single + multi)
 - Reading/writing Stockroom CSV
 """
-
+import code
 import csv
 from pathlib import Path
 import Messages as MSG
@@ -227,7 +227,8 @@ def select_location_interactively():
     else:
         row = user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
-    return f"{category}-{aisle}-{column}-{row}"
+    cat_name, cat_code = category
+    return f"{cat_code}-{aisle}-{column}-{row}"
 
 
 

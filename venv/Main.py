@@ -108,7 +108,7 @@ def main():
                 dirty = True
 
             case 'CREATE LOC':
-                run_command(create_new_location())
+                run_command(create_new_location)
                 dirty = True
 
             case 'CREATE MULTI LOC':
