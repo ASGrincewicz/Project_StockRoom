@@ -145,12 +145,12 @@ def main():
                             term = " ".join(args).upper()
                         else:
                             term = user_input('Enter your search term:\n').strip().upper()
-                        run_command(search_inventory(term))
+                        search_inventory(term)
 
                     case '#':
                         if args and args[0] == 'SEARCH':
                             term = user_input('Enter product number:\n').strip().upper().zfill(4)
-                            run_command(search_inventory(term))
+                            search_inventory(term)
 
                     case 'ADD':
                         run_command(add_single_product)
