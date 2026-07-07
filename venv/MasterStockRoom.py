@@ -6,7 +6,7 @@ Manages:
 - Location creation (single + multi)
 - Reading/writing Stockroom CSV
 """
-
+import code
 import csv
 from pathlib import Path
 import Messages as MSG
@@ -133,6 +133,48 @@ def build_location_index():
 
     return index
 
+def compute_next_location(index, category, max_rows=20, max_columns=10, max_aisles=30):
+    cat_name, cat_code = category  # ("PET", "03")
+
+    # If no locations exist yet for this category
+    if cat_code not in index or not index[cat_code]:
+        return f"{cat_code}-01-A-01", None
+
+    # Aisles are numeric strings: "01", "02", ...
+    aisles = sorted(index[cat_code].keys(), key=lambda x: int(x))
+    last_aisle = aisles[-1]
+
+    # Columns are letters: A, B, C...
+    columns = sorted(index[cat_code][last_aisle].keys())
+    last_column = columns[-1]
+
+    # Rows are numeric strings: "01", "02", ...
+    rows = sorted(index[cat_code][last_aisle][last_column], key=lambda x: int(x))
+    last_row = rows[-1]
+
+    # --- Row cap check ---
+    next_row_int = int(last_row) + 1
+    if next_row_int <= max_rows:
+        next_row = str(next_row_int).zfill(2)
+        return f"{cat_code}-{last_aisle}-{last_column}-{next_row}", None
+
+    # --- Column cap check ---
+    next_column_ord = ord(last_column) + 1
+    if (next_column_ord - ord('A') + 1) <= max_columns:
+        next_column = chr(next_column_ord)
+        return f"{cat_code}-{last_aisle}-{next_column}-01", f"Row limit reached for column {last_column}."
+
+    # --- Aisle cap check ---
+    next_aisle_int = int(last_aisle) + 1
+    if next_aisle_int <= max_aisles:
+        next_aisle = str(next_aisle_int).zfill(2)
+        return f"{cat_code}-{next_aisle}-A-01", f"Column limit reached for aisle {last_aisle}."
+
+    # No more locations possible
+    return None, f"Aisle limit reached ({max_aisles})."
+
+
+
 
 def select_location_interactively():
     """Hybrid hierarchical selector that supports new categories."""
@@ -146,13 +188,38 @@ def select_location_interactively():
     print("\nSelect a category:")
     for i, cat in enumerate(categories, start=1):
         print(f"{i}. {cat}")
+    print(f"{len(categories) + 1}. NEW CATEGORY")
 
     while True:
         choice = user_input("Enter number:\n").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(categories):
-            category = categories[int(choice) - 1]
-            break
+
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(categories):
+                category = categories[choice - 1]
+                break
+            elif choice == len(categories) + 1:
+                # Create new category
+                name = user_input("Enter new category name:\n").strip().upper()
+
+                # Auto-assign next code
+                next_code = str(len(categories) + 1).zfill(2)
+
+                category = (name, next_code)
+                categories.append(category)
+                write_to_stock_room_csv()
+                break
+
         print("Invalid selection.")
+    suggested, cap_message = compute_next_location(index, category)
+
+    if suggested:
+        if cap_message:
+            print(f"\n{cap_message}")
+        print(f"Next suggested location: {suggested}")
+        yn = user_input("Create this location? (Y/N): ").strip().upper()
+        if yn == "Y":
+            return suggested
 
     # -----------------------------
     # Step 2 — Aisle
@@ -227,7 +294,8 @@ def select_location_interactively():
     else:
         row = user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
-    return f"{category}-{aisle}-{column}-{row}"
+    cat_name, cat_code = category
+    return f"{cat_code}-{aisle}-{column}-{row}"
 
 
 
