@@ -4,6 +4,8 @@ Crash‑proof Master Inventory Module
 """
 
 import csv
+import os
+
 import Colorize
 from Product import Product
 from pathlib import Path
@@ -15,6 +17,12 @@ file_contents_written = False
 
 master_inventory = dict()
 categories = []
+
+# Imported after `categories` is defined so the circular chain
+# (MasterStockRoom -> MasterInventory -> ProductLocation -> MasterStockRoom)
+# can resolve `from MasterInventory import categories` regardless of entry point.
+# ProductLocation is only referenced at call time, so a late import is safe.
+import ProductLocation
 
 def user_input(prompt):
     value = input(prompt).strip()
@@ -113,39 +121,152 @@ def add_multi_product_from_file(products_to_add):
 
 
 
-def search_inventory(term):
-    term = term.upper()
-    results = []
+def get_category_name(cat_code):
+    """Resolve a category code (e.g. "04") to its name, or "UNKNOWN"."""
+    cat_lookup = {code: name for (name, code) in categories}
+    return cat_lookup.get(cat_code, "UNKNOWN")
 
-    for prod_num, name_dict in master_inventory.items():
-        for name, count in name_dict.items():
-            if term in name:
-                results.append((prod_num, name, count))
 
-    if not results:
-        print("Search Results: 0")
+def get_backstock_locations(sku):
+    """Return (locs, total_qty) for a SKU across its category's location files.
+
+    `locs` is a list of (location_name, qty) tuples.
+    """
+    cat_code = sku[:2]
+    loc_folder = "StockroomLocations"
+    all_locations = os.listdir(loc_folder) if os.path.exists(loc_folder) else []
+
+    locs = []
+    total_qty = 0
+
+    for file in all_locations:
+        if not file.endswith(".csv"):
+            continue
+        if not file.startswith(cat_code + "-"):
+            continue
+
+        loc_path = os.path.join(loc_folder, file)
+        try:
+            with open(loc_path, "r") as lf:
+                reader = csv.reader(lf)
+                for row in reader:
+                    if len(row) >= 3 and row[0] == sku:
+                        qty = int(row[2])
+                        locs.append((file.replace(".csv", ""), qty))
+                        total_qty += qty
+        except Exception:
+            pass
+
+    return locs, total_qty
+
+
+def print_product_view(sku, name, master_qty):
+    """Print the detailed product view: category, on-hand, backstock, salesfloor."""
+    cat_code = sku[:2]
+    cat_name = get_category_name(cat_code)
+    locs, total_loc_qty = get_backstock_locations(sku)
+    salesfloor_qty = max(0, master_qty - total_loc_qty)
+
+    print("\n" + "-"*40)
+    print(f"SKU: {sku}")
+    print(f"Name: {name}")
+    print(f"Category: {cat_name} ({cat_code})")
+    print(f"Master On Hand: {master_qty}")
+
+    if locs:
+        print("\nBackstock Locations:")
+        for loc, qty in locs:
+            print(f" - {loc}: {qty}")
+    else:
+        print("\nBackstock Locations: None")
+
+    print(f"\nTotal Backstock: {total_loc_qty}")
+    print(f"Salesfloor: {salesfloor_qty}")
+    print("-"*40 + "\n")
+
+
+def product_action_menu(sku, name):
+    """Show the product action menu and dispatch the chosen action."""
+    print("Actions:")
+    print("1. Backstock")
+    print("2. Take")
+    print("3. Edit")
+    print("4. Audit")
+    print("5. Cancel")
+
+    while True:
+        action = user_input("Select an action:\n").strip()
+        if action == "1":
+            ProductLocation.backstock_product(sku, name)
+            return
+        elif action == "2":
+            ProductLocation.remove_product(sku, name)
+            return
+        elif action == "3":
+            edit_product(sku, name)
+            return
+        elif action == "4":
+            ProductLocation.audit_location()
+            return
+        elif action == "5":
+            print("Cancelled.")
+            return
+        else:
+            print("Invalid selection.")
+
+
+def search_inventory(term, inventory_path = master_inventory_file):
+    term = term.lower()
+    matches = []
+
+    # Load master inventory
+    with open(inventory_path, "r") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 3:
+                sku, name, on_hand = row[0], row[1], row[2]
+                if term in sku.lower() or term in name.lower():
+                    matches.append((sku, name, int(on_hand)))
+
+    if not matches:
+        print("No matching products found.")
         return
 
-    print("Search Results:")
-    for prod_num, name, count in results:
-        print(f"{prod_num}: {name} — On Hand: {count}")
+    print("\nSearch Results:")
+    for i, (sku, name, _) in enumerate(matches, start=1):
+        print(f"{i}. {sku} — {name}")
 
+    # Select a product
+    while True:
+        choice = user_input("Select a product:\n").strip()
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(matches):
+                break
+        print("Invalid selection.")
+
+    sku, name, master_qty = matches[choice - 1]
+
+    print_product_view(sku, name, master_qty)
+    product_action_menu(sku, name)
 
 
 def search_by_prod_num(product_num):
     try:
         product_num = product_num.zfill(4)
 
-        if product_num in master_inventory:
-            for name, on_hand in master_inventory[product_num].items():
-                print(f'Result: {product_num}: {name}, On Hand: {on_hand}')
-                return name, on_hand
+        if product_num not in master_inventory:
+            print("Item not found.")
+            return None
 
-        print('Item not found.')
-        return None
+        # Extract name + on-hand from master inventory
+        name, master_qty = next(iter(master_inventory[product_num].items()))
 
-    except Exception:
-        print("Error searching by product number.")
+        print_product_view(product_num, name, master_qty)
+        product_action_menu(product_num, name)
+
+    except Exception as e:
+        print(f"Error searching by product number: {e}")
         return None
 
 
@@ -157,28 +278,44 @@ def sort_inventory_by_prod_num() -> list:
         return []
 
 
-def edit_product():
+def edit_product(sku, name):
     try:
-        product_num = input('Enter the Product number to edit:\n').strip().zfill(4)
+        # Show current values
+        print(f"\nEditing Product {sku}")
+        print(f"Current Name: {name}")
 
-        if product_num in master_inventory:
-            new_name = user_input('New Product name:\n').strip().upper()
-            if not new_name:
-                print("Invalid product name.")
-                return
+        current_on_hand = master_inventory.get(sku, {}).get(name, None)
+        if current_on_hand is None:
+            print("Error: Product not found in master inventory.")
+            return
 
+        print(f"Current On Hand: {current_on_hand}")
+
+        # New name
+        new_name = user_input("New Product name (leave blank to keep current):\n").strip().upper()
+        if not new_name:
+            new_name = name  # keep current
+
+        # New on-hand
+        new_on_hand_input = user_input("New On Hand count (leave blank to keep current):\n").strip()
+        if new_on_hand_input:
             try:
-                new_on_hand = int(input('New On Hand count:\n').strip())
+                new_on_hand = int(new_on_hand_input)
             except ValueError:
                 print("On-hand count must be a number.")
                 return
-
-            master_inventory[product_num] = {new_name: new_on_hand}
         else:
-            print('Product not found. Have you imported the Master Inventory?')
+            new_on_hand = current_on_hand  # keep current
 
-    except Exception:
-        print("Error editing product.")
+        # Update master inventory
+        master_inventory[sku] = {new_name: new_on_hand}
+
+        print(f"\nUpdated {sku}:")
+        print(f"Name: {new_name}")
+        print(f"On Hand: {new_on_hand}")
+
+    except Exception as e:
+        print(f"Error editing product: {e}")
 
 
 def delete_product():
@@ -197,17 +334,17 @@ def delete_product():
         print("Error deleting product.")
 
 
-def read_from_master_inventory_csv():
+def read_from_master_inventory_csv(inventory_path = master_inventory_file):
     global file_contents_read
 
-    if not master_inventory_file.exists():
+    if not inventory_path.exists():
         print('File Not Found.')
         return
 
     products_to_add = set()
 
     try:
-        with open(master_inventory_file, 'r', newline='') as master_file:
+        with open(inventory_path, 'r', newline='') as master_file:
             reader = csv.DictReader(master_file)
 
             for row in reader:
@@ -228,14 +365,14 @@ def read_from_master_inventory_csv():
         print("Error reading Master Inventory CSV.")
 
 
-def write_to_master_inventory_csv():
+def write_to_master_inventory_csv(inventory_path = master_inventory_file):
     global file_contents_written
 
     try:
         field_names = ['Product #', 'Product Name', 'On Hand Count']
-        write_mode = 'w' if file_contents_read or not master_inventory_file.exists() else 'a'
+        write_mode = 'w' if file_contents_read or not inventory_path.exists() else 'a'
 
-        with open(master_inventory_file, write_mode, newline='') as master_file:
+        with open(inventory_path, write_mode, newline='') as master_file:
             print(f'File open with Write Mode: {write_mode}')
             writer = csv.writer(master_file)
 
@@ -355,7 +492,7 @@ def get_category_code(cat_name):
             return code
     return None
 
-def get_next_product_number(category):
+def get_next_product_number(category, inventory_file = master_inventory_file):
     code = get_category_code(category)
     if not code:
         return None
@@ -363,7 +500,7 @@ def get_next_product_number(category):
     highest = 0
 
     # Scan all products
-    with open(master_inventory_file, "r", newline="") as f:
+    with open(inventory_file, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             prod_num = row["Product #"]

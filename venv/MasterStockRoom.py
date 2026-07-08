@@ -14,6 +14,9 @@ import Colorize
 from MasterInventory import categories
 
 master_stockroom_file = Path("master_stockroom_location.csv")
+MAX_AISLES = 20 # 01-20
+MAX_COLUMNS = 10   # A–J
+MAX_ROWS = 20      # 01–20
 
 def user_input(prompt):
     value = input(prompt).strip()
@@ -26,19 +29,19 @@ def user_input(prompt):
 # Crash‑proof CSV read/write
 # -----------------------------
 
-def read_from_stock_room_csv():
+def read_from_stock_room_csv(stockroom_path = master_stockroom_file):
     """
     Load categories from master_stockroom.csv.
     If codes are missing (old format), assign them based on row order.
     """
     global categories
 
-    if not master_stockroom_file.exists():
+    if not stockroom_path.exists():
         print("Stockroom category file not found.")
         return
 
     try:
-        with open(master_stockroom_file, "r", newline="") as f:
+        with open(stockroom_path, "r", newline="") as f:
             reader = csv.DictReader(f)
 
             categories.clear()
@@ -59,20 +62,18 @@ def read_from_stock_room_csv():
                 categories.append((cat, code))
                 row_number += 1
 
-        #print(Colorize.colorize_text_blue("Stockroom categories imported."))
-
     except Exception as e:
         print("Error reading Stockroom CSV.")
         print(f"Details: {e}")
 
 
 
-def write_to_stock_room_csv():
+def write_to_stock_room_csv(stockroom_path = master_stockroom_file):
     """
     Safely write categories to master_stockroom.csv.
     """
     try:
-        with open(master_stockroom_file, "w", newline="") as f:
+        with open(stockroom_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Category", "Code"])
 
@@ -174,45 +175,40 @@ def compute_next_location(index, category, max_rows=20, max_columns=10, max_aisl
     return None, f"Aisle limit reached ({max_aisles})."
 
 
+def select_from_list(options, prompt, new_label="NEW"):
+    """
+    Generic numbered selector.
+    options: list of existing items (strings)
+    prompt: text to show before listing options
+    new_label: label for the 'new' option (e.g., NEW AISLE)
+    """
+    print(f"\n{prompt}")
+    for i, item in enumerate(options, start=1):
+        print(f"{i}. {item}")
+    print(f"{len(options) + 1}. {new_label}")
+
+    while True:
+        choice = user_input("Enter number:\n").strip()
+        if choice.isdigit():
+            choice = int(choice)
+            if 1 <= choice <= len(options):
+                return options[choice - 1], False  # selected existing
+            elif choice == len(options) + 1:
+                return None, True  # user wants NEW
+        print("Invalid selection.")
 
 
 def select_location_interactively():
-    """Hybrid hierarchical selector that supports new categories."""
     global categories
 
     index = build_location_index()
 
-    # -----------------------------
-    # Step 1 — Category (from categories list)
-    # -----------------------------
-    print("\nSelect a category:")
-    for i, cat in enumerate(categories, start=1):
-        print(f"{i}. {cat}")
-    print(f"{len(categories) + 1}. NEW CATEGORY")
+    # Step 1 — Category
+    category = select_category(categories)
+    cat_name, cat_code = category
 
-    while True:
-        choice = user_input("Enter number:\n").strip()
-
-        if choice.isdigit():
-            choice = int(choice)
-            if 1 <= choice <= len(categories):
-                category = categories[choice - 1]
-                break
-            elif choice == len(categories) + 1:
-                # Create new category
-                name = user_input("Enter new category name:\n").strip().upper()
-
-                # Auto-assign next code
-                next_code = str(len(categories) + 1).zfill(2)
-
-                category = (name, next_code)
-                categories.append(category)
-                write_to_stock_room_csv()
-                break
-
-        print("Invalid selection.")
+    # Step 2 — Next-location suggestion
     suggested, cap_message = compute_next_location(index, category)
-
     if suggested:
         if cap_message:
             print(f"\n{cap_message}")
@@ -221,83 +217,62 @@ def select_location_interactively():
         if yn == "Y":
             return suggested
 
-    # -----------------------------
-    # Step 2 — Aisle
-    # -----------------------------
-    if category in index:
-        aisles = sorted(index[category].keys())
-        print("\nSelect an aisle:")
-        for i, aisle in enumerate(aisles, start=1):
-            print(f"{i}. {aisle}")
-        print(f"{len(aisles)+1}. NEW AISLE")
+    # Step 3 — Manual selection
+    aisle = select_aisle(index, cat_code)
+    column = select_column(index, cat_code, aisle)
+    row = select_row(index, cat_code, aisle, column)
 
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(aisles):
-                    aisle = aisles[choice - 1]
-                    break
-                elif choice == len(aisles) + 1:
-                    aisle = user_input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
-                    break
-            print("Invalid selection.")
-    else:
-        # No aisles exist yet for this category
-        aisle = user_input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
-
-    # -----------------------------
-    # Step 3 — Column
-    # -----------------------------
-    if category in index and aisle in index[category]:
-        columns = sorted(index[category][aisle].keys())
-        print("\nSelect a column:")
-        for i, col in enumerate(columns, start=1):
-            print(f"{i}. {col}")
-        print(f"{len(columns)+1}. NEW COLUMN")
-
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(columns):
-                    column = columns[choice - 1]
-                    break
-                elif choice == len(columns) + 1:
-                    column = user_input("Enter new column (e.g., A):\n").strip().upper()
-                    break
-            print("Invalid selection.")
-    else:
-        column = user_input("\nEnter new column (e.g., A):\n").strip().upper()
-
-    # -----------------------------
-    # Step 4 — Row
-    # -----------------------------
-    if category in index and aisle in index[category] and column in index[category][aisle]:
-        rows = sorted(index[category][aisle][column])
-        print("\nSelect a row:")
-        for i, row in enumerate(rows, start=1):
-            print(f"{i}. {row}")
-        print(f"{len(rows)+1}. NEW ROW")
-
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(rows):
-                    row = rows[choice - 1]
-                    break
-                elif choice == len(rows) + 1:
-                    row = user_input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
-                    break
-            print("Invalid selection.")
-    else:
-        row = user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
-
-    cat_name, cat_code = category
     return f"{cat_code}-{aisle}-{column}-{row}"
 
+def select_category(categories):
+    # Use the generic selector
+    selected, is_new = select_from_list(
+        categories,
+        "Select a category:",
+        "NEW CATEGORY"
+    )
 
+    # Existing category selected
+    if not is_new:
+        return selected
+
+    # Create new category
+    name = user_input("Enter new category name:\n").strip().upper()
+    next_code = str(len(categories) + 1).zfill(2)
+    category = (name, next_code)
+    categories.append(category)
+    write_to_stock_room_csv()
+    return category
+
+def select_aisle(index, cat_code):
+    if cat_code in index:
+        aisles = sorted(index[cat_code].keys(), key=lambda x: int(x))
+        aisle, is_new = select_from_list(aisles, "Select an aisle:", "NEW AISLE")
+        if not is_new:
+            return aisle
+        return user_input("Enter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+    else:
+        return user_input("\nEnter new aisle (e.g., 01):\n").strip().upper().zfill(2)
+
+def select_column(index, cat_code, aisle):
+    if cat_code in index and aisle in index[cat_code]:
+        columns = sorted(index[cat_code][aisle].keys())
+        column, is_new = select_from_list(columns, "Select a column:", "NEW COLUMN")
+        if not is_new:
+            return column
+        return user_input("Enter new column (e.g., A):\n").strip().upper()
+    else:
+        return user_input("\nEnter new column (e.g., A):\n").strip().upper()
+
+def select_row(index, cat_code, aisle, column):
+    if cat_code in index and aisle in index[cat_code] and column in index[cat_code][aisle]:
+        rows = sorted(index[cat_code][aisle][column], key=lambda x: int(x))
+        row, is_new = select_from_list(rows, "Select a row:", "NEW ROW")
+        if not is_new:
+            return row
+        return user_input("Enter new row (e.g., 01):\n").strip().upper().zfill(2)
+    else:
+        return user_input("\nEnter new row (e.g., 01):\n").strip().upper().zfill(2)
 
 # -----------------------------
 # Location Creation
@@ -331,41 +306,83 @@ def create_new_location():
 
 
 def create_multiple_locations():
-    """
-    Create multiple locations in a numeric range.
-    Example: LD-01-A-01 through LD-01-A-10
-    """
-    base = user_input("Enter base location prefix (e.g., LD-01-A-):\n").strip().upper()
-    if not base:
-        print(MSG.invalid_input("Base prefix cannot be empty."))
+    global categories
+
+    index = build_location_index()
+
+    # Step 1 — Category
+    category = select_category(categories)
+    cat_name, cat_code = category
+
+    # Step 2 — Aisle
+    aisle = select_aisle(index, cat_code)
+
+    # Aisle cap enforcement
+    aisle_int = int(aisle)
+    if aisle_int < 1 or aisle_int > MAX_AISLES:
+        print(f"Aisle exceeds max allowed aisle ({MAX_AISLES}).")
         return
 
-    start, end = MSG.get_range_input()
+    # Step 3 — Column range
+    print("\nEnter column range (e.g., A to D):")
+    start_col = user_input("Start column:\n").strip().upper()
+    end_col = user_input("End column:\n").strip().upper()
 
-    try:
-        for i in range(start, end + 1):
-            loc = f"{base}{str(i).zfill(2)}"
-            loc_path = Path(f"StockroomLocations/{loc}.csv")
-            loc_path.parent.mkdir(exist_ok=True)
+    start_col_ord = ord(start_col)
+    end_col_ord = ord(end_col)
 
-            if loc_path.exists():
-                print(Colorize.colorize_text_orange(f"{loc} already exists. Skipping."))
+    # Cap enforcement
+    if start_col_ord < ord('A') or start_col_ord > ord('A') + (MAX_COLUMNS - 1):
+        print(f"Start column exceeds max allowed column ({MAX_COLUMNS}).")
+        return
+
+    if end_col_ord < ord('A') or end_col_ord > ord('A') + (MAX_COLUMNS - 1):
+        print(f"End column exceeds max allowed column ({MAX_COLUMNS}).")
+        return
+
+    if end_col_ord < start_col_ord:
+        print("Invalid column range.")
+        return
+
+        # Step 4 — Row range
+    print("\nEnter row range (e.g., 01 to 20):")
+    start_row = int(user_input("Start row:\n").strip())
+    end_row = int(user_input("End row:\n").strip())
+
+    # Row cap enforcement
+    if start_row < 1 or start_row > MAX_ROWS:
+        print(f"Start row exceeds max allowed row ({MAX_ROWS}).")
+        return
+
+    if end_row < 1 or end_row > MAX_ROWS:
+        print(f"End row exceeds max allowed row ({MAX_ROWS}).")
+        return
+
+    if end_row < start_row:
+        print("Invalid row range.")
+        return
+
+
+    created = 0
+    skipped = 0
+
+    for col_ord in range(start_col_ord, end_col_ord + 1):
+        column = chr(col_ord)
+
+        for row_int in range(start_row, end_row + 1):
+            row = str(row_int).zfill(2)
+            loc = f"{cat_code}-{aisle}-{column}-{row}"
+            file_path = Path("StockroomLocations") / f"{loc}.csv"
+
+            if file_path.exists():
+                skipped += 1
                 continue
 
-            with open(loc_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["Product #", "Product Name", "Amount"])
+            # Create the file
+            with open(file_path, "w") as f:
+                f.write("Product #,Product Name,Amount\n")
 
-            print(Colorize.colorize_text_blue(f"Created: {loc}"))
+            created += 1
 
-    except Exception:
-        print("Error creating multiple locations.")
-
-
-# -----------------------------
-# Utility
-# -----------------------------
-
-
-
-
+    print(f"\nCreated {created} new locations.")
+    print(f"Skipped {skipped} existing locations.")

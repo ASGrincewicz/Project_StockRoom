@@ -88,12 +88,14 @@ def main():
             case 'CAT PROD':
                 run_command(show_products_in_category)
 
-            case 'BACK STOCK':
+            case 'BACKSTOCK':
                 if args:
-                    term = " ".join(args)
-                    run_command(back_stock_product(term))
+                    # Treat args as product number
+                    product_num = args[0].zfill(4)
+                    search_by_prod_num(product_num)
                 else:
-                   run_command(back_stock_product())
+                    # Launch interactive backstock flow
+                    backstock_product_interactive()
 
             case 'TAKE STOCK':
                 if args:
@@ -145,12 +147,12 @@ def main():
                             term = " ".join(args).upper()
                         else:
                             term = user_input('Enter your search term:\n').strip().upper()
-                        run_command(search_inventory(term))
+                        search_inventory(term)
 
                     case '#':
                         if args and args[0] == 'SEARCH':
                             term = user_input('Enter product number:\n').strip().upper().zfill(4)
-                            run_command(search_inventory(term))
+                            search_inventory(term)
 
                     case 'ADD':
                         run_command(add_single_product)
@@ -175,10 +177,12 @@ def main():
 
                     case 'BACKSTOCK':
                         if args:
-                            term = " ".join(args)
-                            run_command(back_stock_product(term))
+                            # Treat args as product number
+                            product_num = args[0].zfill(4)
+                            search_by_prod_num(product_num)
                         else:
-                            run_command(back_stock_product)
+                            # Launch interactive backstock flow
+                            backstock_product_interactive()
 
                     case _:
                         print("Unknown command. Type MENU to see available commands.")
