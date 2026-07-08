@@ -29,19 +29,19 @@ def user_input(prompt):
 # Crash‑proof CSV read/write
 # -----------------------------
 
-def read_from_stock_room_csv():
+def read_from_stock_room_csv(stockroom_path = master_stockroom_file):
     """
     Load categories from master_stockroom.csv.
     If codes are missing (old format), assign them based on row order.
     """
     global categories
 
-    if not master_stockroom_file.exists():
+    if not stockroom_path.exists():
         print("Stockroom category file not found.")
         return
 
     try:
-        with open(master_stockroom_file, "r", newline="") as f:
+        with open(stockroom_path, "r", newline="") as f:
             reader = csv.DictReader(f)
 
             categories.clear()
@@ -62,20 +62,18 @@ def read_from_stock_room_csv():
                 categories.append((cat, code))
                 row_number += 1
 
-        #print(Colorize.colorize_text_blue("Stockroom categories imported."))
-
     except Exception as e:
         print("Error reading Stockroom CSV.")
         print(f"Details: {e}")
 
 
 
-def write_to_stock_room_csv():
+def write_to_stock_room_csv(stockroom_path = master_stockroom_file):
     """
     Safely write categories to master_stockroom.csv.
     """
     try:
-        with open(master_stockroom_file, "w", newline="") as f:
+        with open(stockroom_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Category", "Code"])
 

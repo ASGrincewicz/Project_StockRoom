@@ -10,6 +10,7 @@ import MasterStockRoom as MSR
 import Messages as MSG
 import MasterInventory
 
+
 def user_input(prompt):
     value = input(prompt).strip()
     if value.upper() in ("X", "CANCEL", "BACK"):
@@ -17,8 +18,8 @@ def user_input(prompt):
     return value
 
 
-def create_new_location_file(location):
-    location_csv = Path(f'StockroomLocations/{location}.csv')
+def create_new_location_file(location, location_directory = "StockroomLocations"):
+    location_csv = Path(f'{location_directory}/{location}.csv')
     field_names = ['Product #', 'Product Name', 'Amount']
 
     try:
@@ -34,9 +35,9 @@ def create_new_location_file(location):
         print("Error creating location file.")
 
 
-def overwrite_location_file(location, prod_list, amount, product_num):
+def overwrite_location_file(location, prod_list, amount, product_num, location_directory = "StockroomLocations"):
     try:
-        with open(Path(f'StockroomLocations/{location}.csv'), 'w', newline='') as location_file:
+        with open(Path(f'S{location_directory}/{location}.csv'), 'w', newline='') as location_file:
             writer = csv.writer(location_file)
             writer.writerow(['Product #', 'Product Name', 'Amount'])
 
@@ -57,9 +58,9 @@ def overwrite_location_file(location, prod_list, amount, product_num):
         print("Error writing to location file.")
 
 
-def read_location_file(location) -> dict:
+def read_location_file(location, location_directory = "StockroomLocations") -> dict:
     products_in_loc_file = {}
-    location_csv = Path(f'StockroomLocations/{location}.csv')
+    location_csv = Path(f'{location_directory}/{location}.csv')
 
     if not location_csv.exists():
         print(MSG.file_not_found())
@@ -97,7 +98,7 @@ def read_location_file(location) -> dict:
     return products_in_loc_file
 
 
-def audit_location():
+def audit_location(location_directory = "StockroomLocations"):
     print("Select a category to audit:")
     for i, (cat, code) in enumerate(MasterInventory.categories, start=1):
         print(f"{i}. {cat} ({code})")
@@ -112,17 +113,14 @@ def audit_location():
                 break
         print("Invalid selection.")
 
-    # Correct folder
-    loc_folder = "StockroomLocations"
-
     # Load all locations for this category
-    if not os.path.exists(loc_folder):
+    if not os.path.exists(location_directory):
         print(f"No locations found for category {selected_cat}.")
         return
 
     # Filter only this category's locations
     loc_files = [
-        f for f in os.listdir(loc_folder)
+        f for f in os.listdir(location_directory)
         if f.startswith(selected_code + "-") and f.endswith(".csv")
     ]
 
@@ -146,7 +144,7 @@ def audit_location():
         print("Invalid selection.")
 
     # Load products from the selected location
-    loc_path = os.path.join(loc_folder, selected_loc_file)
+    loc_path = os.path.join(location_directory, selected_loc_file)
     print(f"\nProducts in location {selected_loc_file.replace('.csv','')}:")
     found = False
 
@@ -184,7 +182,7 @@ def backstock_product_interactive():
     MasterInventory.search_inventory(term)
 
 
-def backstock_product(sku, name):
+def backstock_product(sku, name, location_directory = "StockroomLocations"):
     try:
         print(f"\nBackstocking {sku} — {name}")
 
@@ -254,7 +252,7 @@ def backstock_product(sku, name):
 
 
 
-def remove_product(sku, name):
+def remove_product(sku, name, location_directory = "StockroomLocations"):
 
     try:
         print(f"\nRemoving product {sku} — {name}")
@@ -274,8 +272,8 @@ def remove_product(sku, name):
         cat_code = sku[:2]
 
         # Find matching category locations
-        loc_folder = "StockroomLocations"
-        all_locations = os.listdir(loc_folder)
+
+        all_locations = os.listdir(location_directory)
 
         loc_files = [
             f for f in all_locations
@@ -299,7 +297,7 @@ def remove_product(sku, name):
             print("Invalid selection.")
 
         selected_file = loc_files[choice - 1]
-        loc_path = os.path.join(loc_folder, selected_file)
+        loc_path = os.path.join(location_directory, selected_file)
 
         # Load location file
         rows = []

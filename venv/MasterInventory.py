@@ -215,12 +215,12 @@ def product_action_menu(sku, name):
             print("Invalid selection.")
 
 
-def search_inventory(term):
+def search_inventory(term, inventory_path = master_inventory_file):
     term = term.lower()
     matches = []
 
     # Load master inventory
-    with open("master_inventory.csv", "r") as f:
+    with open(inventory_path, "r") as f:
         reader = csv.reader(f)
         for row in reader:
             if len(row) >= 3:
@@ -334,17 +334,17 @@ def delete_product():
         print("Error deleting product.")
 
 
-def read_from_master_inventory_csv():
+def read_from_master_inventory_csv(inventory_path = master_inventory_file):
     global file_contents_read
 
-    if not master_inventory_file.exists():
+    if not inventory_path.exists():
         print('File Not Found.')
         return
 
     products_to_add = set()
 
     try:
-        with open(master_inventory_file, 'r', newline='') as master_file:
+        with open(inventory_path, 'r', newline='') as master_file:
             reader = csv.DictReader(master_file)
 
             for row in reader:
@@ -365,14 +365,14 @@ def read_from_master_inventory_csv():
         print("Error reading Master Inventory CSV.")
 
 
-def write_to_master_inventory_csv():
+def write_to_master_inventory_csv(inventory_path = master_inventory_file):
     global file_contents_written
 
     try:
         field_names = ['Product #', 'Product Name', 'On Hand Count']
-        write_mode = 'w' if file_contents_read or not master_inventory_file.exists() else 'a'
+        write_mode = 'w' if file_contents_read or not inventory_path.exists() else 'a'
 
-        with open(master_inventory_file, write_mode, newline='') as master_file:
+        with open(inventory_path, write_mode, newline='') as master_file:
             print(f'File open with Write Mode: {write_mode}')
             writer = csv.writer(master_file)
 
@@ -492,7 +492,7 @@ def get_category_code(cat_name):
             return code
     return None
 
-def get_next_product_number(category):
+def get_next_product_number(category, inventory_file = master_inventory_file):
     code = get_category_code(category)
     if not code:
         return None
@@ -500,7 +500,7 @@ def get_next_product_number(category):
     highest = 0
 
     # Scan all products
-    with open(master_inventory_file, "r", newline="") as f:
+    with open(inventory_file, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             prod_num = row["Product #"]
