@@ -78,8 +78,8 @@ class TestGetBackstockLocations:
     
     def test_get_backstock_locations_with_products(self, clean_environment):
         """Test getting backstock locations with products."""
-        loc_dir = Path("StockroomLocations")
-        loc_dir.mkdir(exist_ok=True)
+        loc_dir = Path("data/StockroomLocations")
+        loc_dir.mkdir(parents=True, exist_ok=True)
         
         # Create location files
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -207,10 +207,10 @@ class TestCSVReadWrite:
         MI.write_to_master_inventory_csv()
         
         # Verify file exists
-        assert Path("master_inventory.csv").exists()
+        assert Path("data/master_inventory.csv").exists()
         
         # Verify content
-        with open("master_inventory.csv", "r") as f:
+        with open("data/master_inventory.csv", "r") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             assert len(rows) == 2

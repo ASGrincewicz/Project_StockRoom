@@ -16,7 +16,7 @@ class TestReadLocationFile:
     
     def test_read_location_file_valid(self, clean_environment):
         """Test reading a valid location file."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -37,7 +37,7 @@ class TestReadLocationFile:
     
     def test_read_location_file_invalid_amount(self, clean_environment):
         """Test reading location file with invalid amount."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -53,7 +53,7 @@ class TestReadLocationFile:
     
     def test_read_location_file_empty_rows(self, clean_environment):
         """Test reading location file with missing fields."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -102,7 +102,7 @@ class TestBackstockProduct:
     def test_backstock_product_basic(self, clean_environment, monkeypatch):
         """Test basic backstock product functionality."""
         # Setup
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -146,7 +146,7 @@ class TestGetProductAmount:
     
     def test_get_product_amount_zero_when_not_found(self, clean_environment):
         """Test get_product_amount returns 0 when product not in location."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -164,12 +164,12 @@ class TestCreateNewLocationFile:
     
     def test_create_new_location_file(self, clean_environment):
         """Test creating a new location file."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         PL.create_new_location_file("01-01-A-01")
         
-        loc_path = Path("StockroomLocations/01-01-A-01.csv")
+        loc_path = Path("data/StockroomLocations/01-01-A-01.csv")
         assert loc_path.exists()
         
         # Verify headers
@@ -180,7 +180,7 @@ class TestCreateNewLocationFile:
     
     def test_create_new_location_file_already_exists(self, clean_environment, capsys):
         """Test creating location file that already exists."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -197,7 +197,7 @@ class TestLocationFileMalformedness:
     
     def test_read_location_file_with_extra_spaces(self, clean_environment):
         """Test reading location file with extra spaces."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -212,7 +212,7 @@ class TestLocationFileMalformedness:
     
     def test_read_location_file_duplicate_products(self, clean_environment):
         """Test reading location file with duplicate products."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"

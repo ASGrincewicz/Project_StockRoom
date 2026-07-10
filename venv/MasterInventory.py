@@ -1,6 +1,18 @@
 # Aaron Grincewicz — 02/19/2023
 """
-Crash‑proof Master Inventory Module
+Crash‑proof Master Inventory Module.
+
+This module owns the in-memory inventory state (the single source of truth) and
+a small set of core helpers. Larger responsibilities have been extracted into
+focused modules and re-exported here for backward compatibility:
+
+    * ``CategoryManager`` — category state helpers and menus.
+    * ``InventoryIO``     — CSV persistence (master / unlocated / next number).
+    * ``InventoryUI``     — interactive console menus.
+    * ``InputUtils``      — the shared cancel-aware ``user_input`` helper.
+
+Callers may continue to use ``from MasterInventory import *`` / ``MasterInventory.<name>``
+exactly as before.
 """
 
 import csv
@@ -10,26 +22,24 @@ import Colorize
 from Product import Product
 from pathlib import Path
 
-master_inventory_file = Path('master_inventory.csv')
+import config
+
+master_inventory_file = config.MASTER_INVENTORY_FILE
+unlocated_inventory_file = config.UNLOCATED_INVENTORY_FILE
 
 file_contents_read = False
 file_contents_written = False
 
 master_inventory = dict()
 salesfloor_capacity = dict()
+# Products that have been received but not yet backstocked or put on the
+# salesfloor. Maps SKU -> {name: qty}.
+unlocated_inventory = dict()
 categories = []
 
-# Imported after `categories` is defined so the circular chain
-# (MasterStockRoom -> MasterInventory -> ProductLocation -> MasterStockRoom)
-# can resolve `from MasterInventory import categories` regardless of entry point.
-# ProductLocation is only referenced at call time, so a late import is safe.
-import ProductLocation
+# Re-export the shared input helper so existing callers keep working.
+from InputUtils import user_input
 
-def user_input(prompt):
-    value = input(prompt).strip()
-    if value.upper() in ("X", "CANCEL", "BACK"):
-        raise KeyboardInterrupt
-    return value
 
 def verify_prod_num(nums_to_check) -> bool:
     """
@@ -43,73 +53,6 @@ def verify_prod_num(nums_to_check) -> bool:
             print(f"{num} found.")
             return False
     return True
-
-
-def add_single_product():
-    global categories, master_inventory
-
-    # Step 1 — Choose category
-    print("Select a category:")
-    for i, (cat, code) in enumerate(categories, start=1):
-        print(f"{i}. {cat} ({code})")
-    print(f"{len(categories) + 1}. New Category")
-
-    while True:
-        choice = user_input("Enter number:\n").strip()
-
-        if choice.isdigit():
-            choice = int(choice)
-
-            # Existing category
-            if 1 <= choice <= len(categories):
-                category = categories[choice - 1][0]
-                break
-
-            # New category option
-            elif choice == len(categories) + 1:
-                new_cat = input("Enter new category name:\n").strip().upper()
-
-                # Generate next category code
-                next_code = str(len(categories) + 1).zfill(2)
-
-                categories.append((new_cat, next_code))
-                print(f"Added new category: {new_cat} ({next_code})")
-
-                category = new_cat
-                break
-
-        print("Invalid selection.")
-
-    # Step 2 — Product name
-    name = user_input("Enter product name:\n").strip().upper()
-
-    # Step 3 — Auto-increment product number
-    prod_num = get_next_product_number(category)
-    if not prod_num:
-        print("Error generating product number.")
-        return
-
-    # Step 4 — Initial count
-    count = user_input("Enter initial count:\n").strip()
-    if not count.isdigit():
-        print("Invalid count.")
-        return
-
-    # Step 5 — Salesfloor capacity
-    cap_input = user_input("Enter salesfloor capacity (default 20):\n").strip()
-    if cap_input and cap_input.isdigit():
-        cap = int(cap_input)
-    else:
-        cap = 20
-
-    # Step 6 — Add to in-memory inventory
-    master_inventory[prod_num] = {name: int(count)}
-    salesfloor_capacity[prod_num] = cap
-
-    print(Colorize.colorize_text_blue(
-        f"Product added to inventory: {prod_num} - {name} ({category}) [Capacity: {cap}]"
-    ))
-
 
 
 def add_multi_product_from_file(products_to_add):
@@ -129,21 +72,13 @@ def add_multi_product_from_file(products_to_add):
         print(f"Details: {e}")
 
 
-
-
-def get_category_name(cat_code):
-    """Resolve a category code (e.g. "04") to its name, or "UNKNOWN"."""
-    cat_lookup = {code: name for (name, code) in categories}
-    return cat_lookup.get(cat_code, "UNKNOWN")
-
-
 def get_backstock_locations(sku):
     """Return (locs, total_qty) for a SKU across its category's location files.
 
     `locs` is a list of (location_name, qty) tuples.
     """
     cat_code = sku[:2]
-    loc_folder = "StockroomLocations"
+    loc_folder = str(config.LOCATIONS_DIR)
     all_locations = os.listdir(loc_folder) if os.path.exists(loc_folder) else []
 
     locs = []
@@ -162,121 +97,47 @@ def get_backstock_locations(sku):
                 for row in reader:
                     if len(row) >= 3 and row[0] == sku:
                         qty = int(row[2])
-                        locs.append((file.replace(".csv", ""), qty))
-                        total_qty += qty
+                        # Only report locations that actually hold product.
+                        if qty > 0:
+                            locs.append((file.replace(".csv", ""), qty))
+                            total_qty += qty
         except Exception:
             pass
 
     return locs, total_qty
 
 
-def print_product_view(sku, name, master_qty):
-    """Print the detailed product view: category, on-hand, backstock, salesfloor."""
-    cat_code = sku[:2]
-    cat_name = get_category_name(cat_code)
-    locs, total_loc_qty = get_backstock_locations(sku)
-    salesfloor_qty = max(0, master_qty - total_loc_qty)
+# -----------------------------
+# Unlocated Inventory (core state helpers)
+# -----------------------------
 
-    print("\n" + "-"*40)
-    print(f"SKU: {sku}")
-    print(f"Name: {name}")
-    print(f"Category: {cat_name} ({cat_code})")
-    cap = salesfloor_capacity.get(sku, 20)
-    print(f"Master On Hand: {master_qty}")
-    print(f"Salesfloor Capacity: {cap}")
-
-    if locs:
-        print("\nBackstock Locations:")
-        for loc, qty in locs:
-            print(f" - {loc}: {qty}")
-    else:
-        print("\nBackstock Locations: None")
-
-    print(f"\nTotal Backstock: {total_loc_qty}")
-    print(f"Salesfloor: {salesfloor_qty}")
-    print("-"*40 + "\n")
-
-
-def product_action_menu(sku, name):
-    """Show the product action menu and dispatch the chosen action."""
-    print("Actions:")
-    print("1. Backstock")
-    print("2. Take")
-    print("3. Edit")
-    print("4. Audit")
-    print("5. Cancel")
-
-    while True:
-        action = user_input("Select an action:\n").strip()
-        if action == "1":
-            ProductLocation.backstock_product(sku, name)
-            return
-        elif action == "2":
-            ProductLocation.remove_product(sku, name)
-            return
-        elif action == "3":
-            edit_product(sku, name)
-            return
-        elif action == "4":
-            ProductLocation.audit_location()
-            return
-        elif action == "5":
-            print("Cancelled.")
-            return
-        else:
-            print("Invalid selection.")
-
-
-def search_inventory(term, inventory_path = master_inventory_file):
-    term = term.lower()
-    matches = []
-
-    # Search in-memory master inventory
-    for sku, name_dict in master_inventory.items():
-        for name, on_hand in name_dict.items():
-            if term in sku.lower() or term in name.lower():
-                matches.append((sku, name, int(on_hand)))
-
-    if not matches:
-        print("No matching products found.")
-        return
-
-    print("\nSearch Results:")
-    for i, (sku, name, _) in enumerate(matches, start=1):
-        print(f"{i}. {sku} — {name}")
-
-    # Select a product
-    while True:
-        choice = user_input("Select a product:\n").strip()
-        if choice.isdigit():
-            choice = int(choice)
-            if 1 <= choice <= len(matches):
-                break
-        print("Invalid selection.")
-
-    sku, name, master_qty = matches[choice - 1]
-
-    print_product_view(sku, name, master_qty)
-    product_action_menu(sku, name)
-
-
-def search_by_prod_num(product_num):
+def get_unlocated_qty(sku):
+    """Return the quantity of a SKU currently sitting in the unlocated pool."""
+    entry = unlocated_inventory.get(sku)
+    if not entry:
+        return 0
     try:
-        product_num = product_num.zfill(4)
+        return int(next(iter(entry.values())))
+    except Exception:
+        return 0
 
-        if product_num not in master_inventory:
-            print("Item not found.")
-            return None
 
-        # Extract name + on-hand from master inventory
-        name, master_qty = next(iter(master_inventory[product_num].items()))
+def add_unlocated(sku, name, amount):
+    """Add ``amount`` of a product to the unlocated pool."""
+    current = get_unlocated_qty(sku)
+    unlocated_inventory[sku] = {name: current + amount}
 
-        print_product_view(product_num, name, master_qty)
-        product_action_menu(product_num, name)
 
-    except Exception as e:
-        print(f"Error searching by product number: {e}")
-        return None
+def reduce_unlocated(sku, amount):
+    """Remove ``amount`` from the unlocated pool, dropping empty entries."""
+    if sku not in unlocated_inventory:
+        return
+    name = next(iter(unlocated_inventory[sku].keys()))
+    remaining = max(0, get_unlocated_qty(sku) - amount)
+    if remaining <= 0:
+        unlocated_inventory.pop(sku, None)
+    else:
+        unlocated_inventory[sku] = {name: remaining}
 
 
 def sort_inventory_by_prod_num() -> list:
@@ -287,141 +148,6 @@ def sort_inventory_by_prod_num() -> list:
         return []
 
 
-def edit_product(sku, name):
-    try:
-        # Show current values
-        print(f"\nEditing Product {sku}")
-        print(f"Current Name: {name}")
-
-        current_on_hand = master_inventory.get(sku, {}).get(name, None)
-        if current_on_hand is None:
-            print("Error: Product not found in master inventory.")
-            return
-
-        current_cap = salesfloor_capacity.get(sku, 20)
-        print(f"Current On Hand: {current_on_hand}")
-        print(f"Current Salesfloor Capacity: {current_cap}")
-
-        # New name
-        new_name = user_input("New Product name (leave blank to keep current):\n").strip().upper()
-        if not new_name:
-            new_name = name  # keep current
-
-        # New on-hand
-        new_on_hand_input = user_input("New On Hand count (leave blank to keep current):\n").strip()
-        if new_on_hand_input:
-            try:
-                new_on_hand = int(new_on_hand_input)
-            except ValueError:
-                print("On-hand count must be a number.")
-                return
-        else:
-            new_on_hand = current_on_hand  # keep current
-
-        # New salesfloor capacity
-        new_cap_input = user_input("New Salesfloor Capacity (leave blank to keep current):\n").strip()
-        if new_cap_input:
-            try:
-                new_cap = int(new_cap_input)
-            except ValueError:
-                print("Capacity must be a number.")
-                return
-        else:
-            new_cap = current_cap
-
-        # Update master inventory
-        master_inventory[sku] = {new_name: new_on_hand}
-        salesfloor_capacity[sku] = new_cap
-
-        print(f"\nUpdated {sku}:")
-        print(f"Name: {new_name}")
-        print(f"On Hand: {new_on_hand}")
-        print(f"Salesfloor Capacity: {new_cap}")
-
-    except Exception as e:
-        print(f"Error editing product: {e}")
-
-
-def delete_product():
-    try:
-        product_num = input('Enter the Product number to delete:\n').strip().zfill(4)
-        search_by_prod_num(product_num)
-
-        confirm = user_input("Confirm deletion? (Y/N):\n").strip().upper()
-        if confirm == 'Y':
-            master_inventory.pop(product_num, None)
-            print(f"Product number {product_num} has been deleted.")
-        else:
-            print("Deletion canceled.")
-
-    except Exception:
-        print("Error deleting product.")
-
-
-def read_from_master_inventory_csv(inventory_path = master_inventory_file):
-    global file_contents_read
-
-    if not inventory_path.exists():
-        print('File Not Found.')
-        return
-
-    products_to_add = set()
-
-    try:
-        with open(inventory_path, 'r', newline='') as master_file:
-            reader = csv.DictReader(master_file)
-
-            for row in reader:
-                try:
-                    cap_val = row.get('Salesfloor Capacity', '20').strip()
-                    # On-hand can never be negative; clamp any bad/legacy values to 0.
-                    on_hand = max(0, int(row.get('On Hand Count', '0').strip()))
-                    prod = Product(
-                        row.get('Product Name', '').strip(),
-                        row.get('Product #', '').strip(),
-                        on_hand,
-                        int(cap_val) if cap_val.isdigit() else 20
-                    )
-                    products_to_add.add(prod)
-                except Exception:
-                    print("Malformed CSV row. Skipping.")
-
-        file_contents_read = True
-        add_multi_product_from_file(products_to_add)
-
-    except Exception:
-        print("Error reading Master Inventory CSV.")
-
-
-def write_to_master_inventory_csv(inventory_path = master_inventory_file):
-    global file_contents_written
-
-    try:
-        field_names = ['Product #', 'Product Name', 'On Hand Count', 'Salesfloor Capacity']
-        write_mode = 'w' if file_contents_read or not inventory_path.exists() else 'a'
-
-        with open(inventory_path, write_mode, newline='') as master_file:
-            print(f'File open with Write Mode: {write_mode}')
-            writer = csv.writer(master_file)
-
-            if write_mode == 'w':
-                writer.writerow(field_names)
-
-            for num in sort_inventory_by_prod_num():
-                for name, count in master_inventory[num].items():
-                    try:
-                        cap = salesfloor_capacity.get(num, 20)
-                        writer.writerow([num, name, int(count), cap])
-                    except ValueError:
-                        print(f"Invalid count for {num}. Skipping.")
-
-        print('Writing to file completed.')
-        file_contents_written = True
-
-    except Exception:
-        print("Error writing Master Inventory CSV.")
-
-
 def update_product_location(add: bool, product_num: str, location: str):
     """
     Legacy placeholder for location tracking.
@@ -429,146 +155,14 @@ def update_product_location(add: bool, product_num: str, location: str):
     """
     pass
 
-def select_product_interactively(term=None):
-    """
-    Search for a product by name and let the user select from results.
-    Returns (product_num, product_name) or None.
-    """
-    if term is None:
-        term = user_input("Search for product:\n").strip().upper()
-    else:
-        term = term.upper()
-    matches = []
 
-    for num, name_dict in master_inventory.items():
-        for name, count in name_dict.items():
-            if term in name:
-                matches.append((num, name, count))
-
-    if not matches:
-        print("No products found.")
-        return None
-
-    print("\nSelect a product:")
-    for i, (num, name, count) in enumerate(matches, start=1):
-        print(f"{i}. {name} (#{num}) — On Hand: {count}")
-
-    while True:
-        choice = user_input("Enter number:\n").strip()
-        if choice.isdigit():
-            idx = int(choice)
-            if 1 <= idx <= len(matches):
-                num, name, _ = matches[idx - 1]
-                return num, name
-        print("Invalid selection.")
 # -----------------------------
-# Category Management
+# Re-exports of extracted modules
 # -----------------------------
-
-def set_categories():
-    global categories
-    categories.clear()
-
-    print("Enter categories. Type DONE when finished.")
-    while True:
-        cat = user_input("Category:\n").strip()
-        if cat.upper() == "DONE":
-            break
-
-        cat = cat.upper()
-        code = str(len(categories) + 1).zfill(2)
-        categories.append((cat, code))
-
-    print("Stockroom categories saved.")
-
-
-def add_categories():
-    global categories
-
-    print("Enter categories to add. Type DONE when finished.")
-    while True:
-        cat = user_input("Category:\n").strip()
-        if cat.upper() == "DONE":
-            break
-
-        cat = cat.upper()
-
-        # Check if category already exists
-        if any(c == cat for c, _ in categories):
-            print(f"{cat} already exists. Skipping.")
-            continue
-
-        code = str(len(categories) + 1).zfill(2)
-        categories.append((cat, code))
-        print(f"{cat}:{code} added.")
-
-
-def show_categories():
-    """
-    Display categories safely.
-    """
-    if not categories:
-        print(Colorize.colorize_text_orange("No categories set."))
-        return
-
-    print(Colorize.colorize_text_blue("Categories:"))
-    for cat, code in categories:
-        print(f"- {cat}: {code}")
-
-def get_category_code(cat_name):
-    for cat, code in categories:
-        if cat == cat_name:
-            return code
-    return None
-
-def get_next_product_number(category, inventory_file = master_inventory_file):
-    code = get_category_code(category)
-    if not code:
-        return None
-
-    highest = 0
-
-    # Scan all products
-    with open(inventory_file, "r", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            prod_num = row["Product #"]
-            if prod_num.startswith(code):
-                item_num = int(prod_num[-2:])
-                highest = max(highest, item_num)
-
-    next_item = highest + 1
-    return f"{code}{str(next_item).zfill(2)}"
-
-def show_products_in_category():
-    global categories, master_inventory
-
-    print("Select a category to view its products:")
-    for i, (cat, code) in enumerate(categories, start=1):
-        print(f"{i}. {cat} ({code})")
-
-    while True:
-        choice = user_input("Enter number:\n").strip()
-
-        if choice.isdigit():
-            choice = int(choice)
-            if 1 <= choice <= len(categories):
-                selected_cat, selected_code = categories[choice - 1]
-                break
-
-        print("Invalid selection.")
-
-    print(f"\nProducts in category: {selected_cat} ({selected_code})")
-
-    found = False
-    for product_num, product_data in master_inventory.items():
-        if product_num.startswith(selected_code):
-            for name, count in product_data.items():
-                print(f"{product_num} - {name} ({count})")
-                found = True
-
-    if not found:
-        print("No products found in this category.")
-
-
-
+# Imported after the state and core helpers above are defined so the extracted
+# modules (and the circular chain
+# MasterStockRoom -> MasterInventory -> ProductLocation -> MasterStockRoom)
+# can resolve their references at call time regardless of entry point.
+from CategoryManager import *  # noqa: E402,F401,F403
+from InventoryIO import *      # noqa: E402,F401,F403
+from InventoryUI import *      # noqa: E402,F401,F403

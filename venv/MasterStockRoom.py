@@ -11,9 +11,10 @@ import csv
 from pathlib import Path
 import Messages as MSG
 import Colorize
+import config
 from MasterInventory import categories
 
-master_stockroom_file = Path("master_stockroom_location.csv")
+master_stockroom_file = config.MASTER_STOCKROOM_FILE
 MAX_AISLES = 20 # 01-20
 MAX_COLUMNS = 10   # A–J
 MAX_ROWS = 20      # 01–20
@@ -73,6 +74,7 @@ def write_to_stock_room_csv(stockroom_path = master_stockroom_file):
     Safely write categories to master_stockroom.csv.
     """
     try:
+        Path(stockroom_path).parent.mkdir(parents=True, exist_ok=True)
         with open(stockroom_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Category", "Code"])
@@ -117,7 +119,7 @@ def build_location_index():
     }
     """
     index = {}
-    loc_dir = Path("StockroomLocations")
+    loc_dir = config.LOCATIONS_DIR
 
     for file in loc_dir.glob("*.csv"):
         loc = file.stem
@@ -296,10 +298,10 @@ def create_new_location():
     if not location:
         return
 
-    loc_path = Path(f"StockroomLocations/{location}.csv")
+    loc_path = config.LOCATIONS_DIR / f"{location}.csv"
 
     try:
-        loc_path.parent.mkdir(exist_ok=True)
+        loc_path.parent.mkdir(parents=True, exist_ok=True)
 
         if loc_path.exists():
             print(MSG.file_exist())
@@ -382,7 +384,8 @@ def create_multiple_locations():
         for row_int in range(start_row, end_row + 1):
             row = str(row_int).zfill(2)
             loc = f"{cat_code}-{aisle}-{column}-{row}"
-            file_path = Path("StockroomLocations") / f"{loc}.csv"
+            file_path = config.LOCATIONS_DIR / f"{loc}.csv"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
 
             if file_path.exists():
                 skipped += 1

@@ -9,6 +9,7 @@ from pathlib import Path
 import MasterStockRoom as MSR
 import Messages as MSG
 import MasterInventory
+import config
 
 
 def user_input(prompt):
@@ -18,11 +19,12 @@ def user_input(prompt):
     return value
 
 
-def create_new_location_file(location, location_directory = "StockroomLocations"):
+def create_new_location_file(location, location_directory = config.LOCATIONS_DIR):
     location_csv = Path(f'{location_directory}/{location}.csv')
     field_names = ['Product #', 'Product Name', 'Amount']
 
     try:
+        location_csv.parent.mkdir(parents=True, exist_ok=True)
         if location_csv.exists():
             print(MSG.file_exist())
             return
@@ -35,9 +37,11 @@ def create_new_location_file(location, location_directory = "StockroomLocations"
         print("Error creating location file.")
 
 
-def overwrite_location_file(location, prod_list, amount, product_num, location_directory = "StockroomLocations"):
+def overwrite_location_file(location, prod_list, amount, product_num, location_directory = config.LOCATIONS_DIR):
     try:
-        with open(Path(f'S{location_directory}/{location}.csv'), 'w', newline='') as location_file:
+        location_csv = Path(f'{location_directory}/{location}.csv')
+        location_csv.parent.mkdir(parents=True, exist_ok=True)
+        with open(location_csv, 'w', newline='') as location_file:
             writer = csv.writer(location_file)
             writer.writerow(['Product #', 'Product Name', 'Amount'])
 
@@ -58,7 +62,7 @@ def overwrite_location_file(location, prod_list, amount, product_num, location_d
         print("Error writing to location file.")
 
 
-def read_location_file(location, location_directory = "StockroomLocations") -> dict:
+def read_location_file(location, location_directory = config.LOCATIONS_DIR) -> dict:
     products_in_loc_file = {}
     location_csv = Path(f'{location_directory}/{location}.csv')
 
@@ -98,7 +102,7 @@ def read_location_file(location, location_directory = "StockroomLocations") -> d
     return products_in_loc_file
 
 
-def audit_location(location_directory = "StockroomLocations"):
+def audit_location(location_directory = config.LOCATIONS_DIR):
     print("Select a category to audit:")
     for i, (cat, code) in enumerate(MasterInventory.categories, start=1):
         print(f"{i}. {cat} ({code})")
@@ -203,7 +207,7 @@ def backstock_product_interactive():
     term = user_input("Search for product:\n").strip()
     MasterInventory.search_inventory(term)
 
-def find_existing_backstock_locations(index, cat_code, sku, location_directory="StockroomLocations"):
+def find_existing_backstock_locations(index, cat_code, sku, location_directory=config.LOCATIONS_DIR):
     existing = []
 
     # Loop through aisles
@@ -226,7 +230,13 @@ def find_existing_backstock_locations(index, cat_code, sku, location_directory="
     return existing
 
 
-def backstock_product(sku, name, location_directory="StockroomLocations"):
+def backstock_product(sku, name, location_directory=config.LOCATIONS_DIR, max_amount=None):
+    """Place product into a backstock location.
+
+    When ``max_amount`` is provided (e.g. when backstocking from the
+    unlocated pool) the entered amount cannot exceed it. Returns the amount
+    actually placed, or ``None`` if nothing was placed.
+    """
     try:
         print(f"\nBackstocking {sku} — {name}")
 
@@ -234,11 +244,22 @@ def backstock_product(sku, name, location_directory="StockroomLocations"):
         current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
         print(f"Current On Hand: {current_on_hand}")
 
+        if max_amount is not None:
+            print(f"Max you can backstock: {max_amount}")
+
         # Ask amount
         try:
             amount = int(user_input("Enter amount:\n").strip())
         except ValueError:
             print("Amount must be a number.")
+            return
+
+        if amount <= 0:
+            print("Amount must be a positive number.")
+            return
+
+        if max_amount is not None and amount > max_amount:
+            print(f"Amount exceeds available stock. Max allowed: {max_amount}")
             return
 
         # Derive category from SKU
@@ -331,14 +352,16 @@ def backstock_product(sku, name, location_directory="StockroomLocations"):
 
         print(f"\n{amount} of {name} placed in {loc}.")
         print(f"On Hand: {current_on_hand}")
+        return amount
 
     except Exception as e:
         print(f"Error in backstock_product: {e}")
+        return None
 
 
 
 
-def remove_product(sku, name, location_directory = "StockroomLocations"):
+def remove_product(sku, name, location_directory = config.LOCATIONS_DIR):
 
     try:
         print(f"\nRemoving product {sku} — {name}")
@@ -399,19 +422,25 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             print("No backstock locations found for this product.")
             return
 
-        print("\nSelect a location to remove from:")
-        for i, file in enumerate(loc_files, start=1):
-            print(f"{i}. {file.replace('.csv','')}")
+        # If there's only one location holding this product, use it directly
+        # instead of prompting for a redundant selection.
+        if len(loc_files) == 1:
+            selected_file = loc_files[0]
+            print(f"\nOnly one location — selecting {selected_file.replace('.csv','')}.")
+        else:
+            print("\nSelect a location to remove from:")
+            for i, file in enumerate(loc_files, start=1):
+                print(f"{i}. {file.replace('.csv','')}")
 
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(loc_files):
-                    break
-            print("Invalid selection.")
+            while True:
+                choice = user_input("Enter number:\n").strip()
+                if choice.isdigit():
+                    choice = int(choice)
+                    if 1 <= choice <= len(loc_files):
+                        break
+                print("Invalid selection.")
 
-        selected_file = loc_files[choice - 1]
+            selected_file = loc_files[choice - 1]
         loc_path = os.path.join(location_directory, selected_file)
 
         # Load location file

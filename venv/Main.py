@@ -23,6 +23,8 @@ def show_commands():
         + Colorize.colorize_text_green("Stock Commands:\n---------------\n")
         + "BACKSTOCK: Move a product into a backstock location.\n"
         + "TAKE: Take a product from backstock to the salesfloor.\n"
+        + "RECEIVE: Receive product into the unlocated pool.\n"
+        + "UNLOCATED: Show unlocated product and backstock/place it on the salesfloor.\n"
         + "AUDIT: Show all products in a location.\n\n"
 
         + Colorize.colorize_text_yellow("App Commands:\n-------------\n")
@@ -132,12 +134,21 @@ def main():
                 run_command(take_product_interactive)
                 dirty = True
 
+            case 'RECEIVE':
+                run_command(receive_product)
+                dirty = True
+
+            case 'UNLOCATED':
+                run_command(show_unlocated_products)
+                dirty = True
+
             case 'AUDIT':
                 run_command(audit_location)
 
             case 'SAVE':
                 write_to_master_inventory_csv()
                 write_to_stock_room_csv()
+                write_to_unlocated_csv()
                 dirty = False
 
             case 'QUIT':
@@ -145,6 +156,7 @@ def main():
                     print("Saving changes before quitting...")
                     write_to_master_inventory_csv()
                     write_to_stock_room_csv()
+                    write_to_unlocated_csv()
                 print("Goodbye.")
                 exit()
 
@@ -226,5 +238,10 @@ try:
     read_from_master_inventory_csv()
 except Exception:
     print("Error loading master inventory CSV.")
+
+try:
+    read_from_unlocated_csv()
+except Exception:
+    print("Error loading unlocated inventory CSV.")
 
 main()
