@@ -2,7 +2,7 @@
 
 > A comprehensive, crash-proof inventory management system for organizing and tracking products and stockroom locations.
 
-![Python](https://img.shields.io/badge/Python-3.12-blue) ![License](https://img.shields.io/badge/License-MIT-green) ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.12-blue) ![Tests](https://img.shields.io/badge/Tests-141%20passing-yellow) ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
 ## Overview
 
@@ -11,10 +11,11 @@
 ### Key Strengths
 - 🛡️ **Crash-Proof** - Comprehensive error handling and validation
 - 🎯 **Modular Architecture** - Clean separation of concerns
-- 📦 **Production Ready** - 147 tests with 100% passing rate
+- 📦 **Well-Tested** - 147 tests in the suite (see [Testing](#testing) for current status)
 - 💾 **Persistent Storage** - CSV-based data persistence
 - 🎨 **User-Friendly** - Colorized terminal output with intuitive menus
 - 🚀 **Scalable** - Easy to extend and maintain
+- 🐍 **Zero Runtime Dependencies** - Uses only the Python standard library (`csv`, `os`, `pathlib`)
 
 ## Features
 
@@ -63,6 +64,8 @@ Project_StockRoom/
 │   │
 │   ├── master_inventory.csv        ← Product data
 │   ├── master_stockroom_location.csv ← Category data
+│   ├── unlocated_inventory.csv     ← Received-but-unlocated product pool
+│   ├── FILES_CREATED.txt           ← Notes on generated files
 │   ├── StockroomLocations/         ← Location files (by category)
 │   │   ├── 01-01-A-01.csv
 │   │   ├── 01-01-A-02.csv
@@ -81,91 +84,107 @@ Project_StockRoom/
 │       └── (6 documentation files)
 ```
 
+## Requirements
+
+- **Python 3.12+**
+- **pip** (only needed to install the test dependencies)
+- **Runtime dependencies:** none — the application uses only the Python standard library.
+- **Test dependencies:** `pytest` (>= 7.0), `pytest-cov` (optional, for coverage).
+
+> **Note on `venv/`:** In this repository the application source code lives inside the `venv/` directory (the folder was reused as the project root for the source). It is **not** a standard throwaway virtual environment. Do not delete it.
+
+> **TODO:** Add a `requirements.txt` (or `pyproject.toml`) pinning the test dependencies so setup can be automated.
+
 ## Installation
-
-### Prerequisites
-- Python 3.12+
-- pip (Python package manager)
-
-### Setup
 
 1. **Clone or navigate to the project**
    ```bash
-   cd /Users/solid24/PycharmProjects/Project_StockRoom
+   cd Project_StockRoom
    ```
 
-2. **Create virtual environment** (if not already created)
+2. **(Optional) Create and activate a virtual environment for the tools**
    ```bash
-   python3 -m venv venv
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
 
-3. **Activate virtual environment**
-   ```bash
-   source venv/bin/activate
-   ```
-
-4. **Install dependencies** (pytest for testing)
+3. **Install test dependencies** (only required to run the test suite)
    ```bash
    pip install pytest pytest-cov
    ```
 
-5. **Ready to use!**
+4. **Run the application**
    ```bash
    cd venv
    python3 Main.py
    ```
 
+## Environment Variables
+
+The application does not read any environment variables. All configuration (data file names and the `StockroomLocations/` directory) is resolved relative to the current working directory.
+
+> **TODO:** If configurable data paths are desired in the future, document the corresponding environment variables here.
+
 ## Usage
 
 ### Running the Application
 
+Run from inside the `venv/` directory so the module imports and CSV paths resolve correctly:
+
 ```bash
-cd /Users/solid24/PycharmProjects/Project_StockRoom/venv
+cd venv
 python3 Main.py
 ```
 
+On startup the app loads `master_stockroom_location.csv`, `master_inventory.csv`, and `unlocated_inventory.csv` (missing files are handled gracefully).
+
 ### Main Commands
 
-#### Product Management
-```
-ADD                 Add a new product to inventory
-EDIT                Edit an existing product
-DELETE PRODUCT      Delete a product
-SEARCH <term>       Search for products by name
-# SEARCH <number>   Search for products by number
-```
+Commands are case-insensitive. The list below reflects the current `venv/Main.py` router.
 
-#### Category Management
+#### Everyday Commands
 ```
-ADD CAT             Add a new category
-SET CAT             Set all categories (overwrite)
-SHOW CAT            Display all categories
+MENU                Display the main command list
+ADMIN               Show advanced/administration commands
+SEARCH <term>       Search Master Inventory by name (prompts if no term given)
+# SEARCH            Search Master Inventory by product number
 CAT PROD            Show products in a category
 ```
 
-#### Location Management
+#### Stock Commands
 ```
+BACKSTOCK [number]  Move a product into a backstock location (interactive if no number)
+TAKE                Take a product from backstock to the salesfloor
+RECEIVE             Receive product into the unlocated pool
+UNLOCATED           Show unlocated product and place/backstock it
+AUDIT               Show all products in a location
+```
+
+#### App Commands
+```
+SAVE                Save Master Inventory, stockroom, and unlocated CSVs
+QUIT                Save (if unsaved changes) and exit the application
+```
+
+#### Admin Commands (via `ADMIN`)
+```
+ADD                 Add a new product
+EDIT                Edit an existing product
+DELETE PRODUCT      Delete a product
+ADD CAT             Add a new category
+SET CAT             Set all categories (WARNING: overwrites ALL categories)
+SHOW CAT            Display all categories
 CREATE LOC          Create a single stockroom location
 CREATE MULTI LOC    Create multiple locations at once
-READ LOC            Import stockroom data from CSV
-AUDIT               View products in a location
-BACKSTOCK <number>  Add product to backstock location
-TAKE STOCK          Remove product from backstock
+READ LOC            Import Master Stockroom CSV
+READ                Import Master Inventory CSV
+WRITE               Write Master Inventory to CSV
+SORT                Sort/write Master Inventory by product number
 ```
 
-#### Data Management
+#### Cancelling an Operation
 ```
-READ                Import master inventory from CSV
-WRITE               Export inventory to CSV
-SORT                Sort inventory by product number
-SAVE                Save both inventory and categories
-```
-
-#### System Commands
-```
-MENU                Display all available commands
-QUIT                Exit the application
-X / CANCEL / BACK   Cancel current operation
+X / CANCEL / BACK   Cancel the current interactive command
 ```
 
 ### Example Workflow
@@ -208,16 +227,16 @@ X / CANCEL / BACK   Cancel current operation
 ### Quick Start
 
 ```bash
-cd /Users/solid24/PycharmProjects/Project_StockRoom/venv/Tests
+cd venv/Tests
 python3 -m pytest -v
 ```
 
 ### Test Suite Overview
 
-- **147 Total Tests** - Comprehensive coverage
-- **144 Passing** - 100% success rate
-- **3 Skipped** - Complex interactive tests (intentional)
-- **61% Coverage** - Well-tested core functionality
+- **147 Total Tests** in the suite
+- **Last run:** 141 passing, 3 skipped, and **3 failing** in `test_master_stockroom.py::TestComputeNextLocation` (location roll-over edge cases: row/column/aisle at limit).
+
+> **TODO:** The 3 failing `compute_next_location` tests indicate the roll-over logic and/or the tests are out of sync. Reconcile the expected behavior and fix so the suite is fully green.
 
 ### Running Specific Tests
 
@@ -237,8 +256,8 @@ python3 -m pytest --cov=.. --cov-report=html
 
 ### Test Categories
 
-- **Unit Tests** (136) - Individual module testing
-- **Integration Tests** (8) - End-to-end workflows
+- **Unit Tests** - Individual module testing (`test_product.py`, `test_master_inventory.py`, etc.)
+- **Integration Tests** - End-to-end workflows (`test_integration.py`)
 - **Skipped Tests** (3) - Complex interactive scenarios
 
 ### Documentation
@@ -400,7 +419,7 @@ python3 -m pytest --cov=..           # With coverage
 ### Issue: Tests fail to run
 **Solution**: Ensure you're in the Tests directory:
 ```bash
-cd /Users/solid24/PycharmProjects/Project_StockRoom/venv/Tests
+cd venv/Tests
 python3 -m pytest
 ```
 
@@ -429,7 +448,7 @@ python3 -m pytest
 
 ## License
 
-This project is provided as-is for educational and business use.
+> **TODO:** No `LICENSE` file is present in the repository. Add one to declare the project's license. The prior README referenced an MIT badge, but no license file backs that claim. Until a `LICENSE` file is added, the project is provided as-is for educational and business use, with all rights reserved by the author (Aaron Grincewicz).
 
 ## Support & Contact
 
@@ -442,15 +461,14 @@ For issues, questions, or suggestions:
 
 ### Version 1.0 (Current)
 - ✅ Full inventory management
-- ✅ Location-based tracking
+- ✅ Location-based tracking (incl. unlocated/received pool)
 - ✅ CSV data persistence
-- ✅ 147 comprehensive tests
-- ✅ Professional error handling
+- ✅ 147-test suite
+- ✅ Error handling on load/save
 - ✅ Colorized terminal UI
 
 ---
 
-**Last Updated**: July 7, 2026  
-**Status**: ✅ Production Ready  
-**Test Coverage**: 61%  
-**Tests Passing**: 144/147
+**Last Updated**: July 10, 2026  
+**Author**: Aaron Grincewicz  
+**Tests**: 141 passing / 3 skipped / 3 failing (see [Testing](#testing))
