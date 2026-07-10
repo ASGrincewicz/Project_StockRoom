@@ -11,12 +11,16 @@ from Product import Product
 from pathlib import Path
 
 master_inventory_file = Path('master_inventory.csv')
+unlocated_inventory_file = Path('unlocated_inventory.csv')
 
 file_contents_read = False
 file_contents_written = False
 
 master_inventory = dict()
 salesfloor_capacity = dict()
+# Products that have been received but not yet backstocked or put on the
+# salesfloor. Maps SKU -> {name: qty}.
+unlocated_inventory = dict()
 categories = []
 
 # Imported after `categories` is defined so the circular chain
@@ -162,12 +166,196 @@ def get_backstock_locations(sku):
                 for row in reader:
                     if len(row) >= 3 and row[0] == sku:
                         qty = int(row[2])
-                        locs.append((file.replace(".csv", ""), qty))
-                        total_qty += qty
+                        # Only report locations that actually hold product.
+                        if qty > 0:
+                            locs.append((file.replace(".csv", ""), qty))
+                            total_qty += qty
         except Exception:
             pass
 
     return locs, total_qty
+
+
+# -----------------------------
+# Unlocated Inventory
+# -----------------------------
+
+def get_unlocated_qty(sku):
+    """Return the quantity of a SKU currently sitting in the unlocated pool."""
+    entry = unlocated_inventory.get(sku)
+    if not entry:
+        return 0
+    try:
+        return int(next(iter(entry.values())))
+    except Exception:
+        return 0
+
+
+def add_unlocated(sku, name, amount):
+    """Add ``amount`` of a product to the unlocated pool."""
+    current = get_unlocated_qty(sku)
+    unlocated_inventory[sku] = {name: current + amount}
+
+
+def reduce_unlocated(sku, amount):
+    """Remove ``amount`` from the unlocated pool, dropping empty entries."""
+    if sku not in unlocated_inventory:
+        return
+    name = next(iter(unlocated_inventory[sku].keys()))
+    remaining = max(0, get_unlocated_qty(sku) - amount)
+    if remaining <= 0:
+        unlocated_inventory.pop(sku, None)
+    else:
+        unlocated_inventory[sku] = {name: remaining}
+
+
+def read_from_unlocated_csv(inventory_path=unlocated_inventory_file):
+    """Load the unlocated inventory from its CSV file."""
+    unlocated_inventory.clear()
+
+    if not inventory_path.exists():
+        return
+
+    try:
+        with open(inventory_path, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    sku = row.get('Product #', '').strip().zfill(4)
+                    name = row.get('Product Name', '').strip().upper()
+                    qty = max(0, int(row.get('Unlocated Count', '0').strip()))
+                    if sku and qty > 0:
+                        unlocated_inventory[sku] = {name: qty}
+                except Exception:
+                    print("Malformed unlocated CSV row. Skipping.")
+    except Exception:
+        print("Error reading Unlocated Inventory CSV.")
+
+
+def write_to_unlocated_csv(inventory_path=unlocated_inventory_file):
+    """Persist the unlocated inventory to its CSV file."""
+    try:
+        field_names = ['Product #', 'Product Name', 'Unlocated Count']
+        with open(inventory_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(field_names)
+            for sku in sorted(unlocated_inventory.keys()):
+                for name, qty in unlocated_inventory[sku].items():
+                    writer.writerow([sku, name, int(qty)])
+        print('Unlocated inventory saved.')
+    except Exception:
+        print("Error writing Unlocated Inventory CSV.")
+
+
+def receive_product():
+    """Receive product into the unlocated pool (increases On Hand and Unlocated)."""
+    selection = select_product_interactively()
+    if not selection:
+        return
+    sku, name = selection
+
+    amount_input = user_input("Enter amount received:\n").strip()
+    if not amount_input.isdigit():
+        print("Amount must be a positive number.")
+        return
+    amount = int(amount_input)
+    if amount <= 0:
+        print("Amount must be a positive number.")
+        return
+
+    # Received product increases the master on-hand and lands as unlocated.
+    current_on_hand = int(next(iter(master_inventory[sku].values())))
+    master_inventory[sku] = {name: current_on_hand + amount}
+    add_unlocated(sku, name, amount)
+
+    print(f"\nReceived {amount} of {name} (#{sku}).")
+    print(f"On Hand: {current_on_hand + amount}")
+    print(f"Unlocated: {get_unlocated_qty(sku)}")
+
+
+def show_unlocated_products():
+    """List unlocated products and let the user backstock or place them on the salesfloor."""
+    entries = [
+        (sku, next(iter(name_dict.keys())), get_unlocated_qty(sku))
+        for sku, name_dict in unlocated_inventory.items()
+        if get_unlocated_qty(sku) > 0
+    ]
+
+    if not entries:
+        print("No unlocated products.")
+        return
+
+    print("\nUnlocated Products:")
+    for i, (sku, name, qty) in enumerate(entries, start=1):
+        print(f"{i}. {sku} — {name} (Unlocated: {qty})")
+
+    while True:
+        choice = user_input("Select a product:\n").strip()
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= len(entries):
+                break
+        print("Invalid selection.")
+
+    sku, name, unloc_qty = entries[idx - 1]
+
+    print(f"\nWhat would you like to do with {name} (#{sku})?")
+    print("1. Backstock")
+    print("2. Move to Salesfloor")
+    print("3. Cancel")
+
+    while True:
+        action = user_input("Select an action:\n").strip()
+        if action == "1":
+            placed = ProductLocation.backstock_product(sku, name, max_amount=unloc_qty)
+            if placed:
+                reduce_unlocated(sku, placed)
+                print(f"Unlocated remaining: {get_unlocated_qty(sku)}")
+            return
+        elif action == "2":
+            move_unlocated_to_salesfloor(sku, name, unloc_qty)
+            return
+        elif action == "3":
+            print("Cancelled.")
+            return
+        else:
+            print("Invalid selection.")
+
+
+def move_unlocated_to_salesfloor(sku, name, unloc_qty):
+    """Move product from the unlocated pool onto the salesfloor, respecting capacity."""
+    master_qty = int(next(iter(master_inventory[sku].values())))
+    _, total_loc_qty = get_backstock_locations(sku)
+    cap = salesfloor_capacity.get(sku, 20)
+    salesfloor_qty = max(0, master_qty - total_loc_qty - unloc_qty)
+    remaining_cap = max(0, cap - salesfloor_qty)
+
+    if remaining_cap <= 0:
+        print(f"Salesfloor is at capacity ({cap}). Cannot move more stock.")
+        return
+
+    max_movable = min(remaining_cap, unloc_qty)
+    print(f"Salesfloor Capacity: {cap}")
+    print(f"Currently on Salesfloor: {salesfloor_qty}")
+    print(f"Max you can move: {max_movable}")
+
+    amount_input = user_input("Enter amount to move to salesfloor:\n").strip()
+    if not amount_input.isdigit():
+        print("Amount must be a positive number.")
+        return
+    amount = int(amount_input)
+    if amount <= 0:
+        print("Amount must be a positive number.")
+        return
+    if amount > max_movable:
+        print(f"Amount exceeds available capacity/stock. Max allowed: {max_movable}")
+        return
+
+    # Moving from unlocated to the salesfloor does not change master on-hand;
+    # it simply stops being unlocated, which the salesfloor calculation reflects.
+    reduce_unlocated(sku, amount)
+    print(f"\nMoved {amount} of {name} to the salesfloor.")
+    print(f"Unlocated remaining: {get_unlocated_qty(sku)}")
 
 
 def print_product_view(sku, name, master_qty):
@@ -175,7 +363,8 @@ def print_product_view(sku, name, master_qty):
     cat_code = sku[:2]
     cat_name = get_category_name(cat_code)
     locs, total_loc_qty = get_backstock_locations(sku)
-    salesfloor_qty = max(0, master_qty - total_loc_qty)
+    unlocated_qty = get_unlocated_qty(sku)
+    salesfloor_qty = max(0, master_qty - total_loc_qty - unlocated_qty)
 
     print("\n" + "-"*40)
     print(f"SKU: {sku}")
@@ -184,6 +373,7 @@ def print_product_view(sku, name, master_qty):
     cap = salesfloor_capacity.get(sku, 20)
     print(f"Master On Hand: {master_qty}")
     print(f"Salesfloor Capacity: {cap}")
+    print(f"Unlocated: {unlocated_qty}")
 
     if locs:
         print("\nBackstock Locations:")
@@ -245,16 +435,21 @@ def search_inventory(term, inventory_path = master_inventory_file):
     for i, (sku, name, _) in enumerate(matches, start=1):
         print(f"{i}. {sku} — {name}")
 
-    # Select a product
-    while True:
-        choice = user_input("Select a product:\n").strip()
-        if choice.isdigit():
-            choice = int(choice)
-            if 1 <= choice <= len(matches):
-                break
-        print("Invalid selection.")
+    # If only one product matches, go straight to it.
+    if len(matches) == 1:
+        sku, name, master_qty = matches[0]
+        print(f"\nOnly one match — selecting {sku} — {name}.")
+    else:
+        # Select a product
+        while True:
+            choice = user_input("Select a product:\n").strip()
+            if choice.isdigit():
+                choice = int(choice)
+                if 1 <= choice <= len(matches):
+                    break
+            print("Invalid selection.")
 
-    sku, name, master_qty = matches[choice - 1]
+        sku, name, master_qty = matches[choice - 1]
 
     print_product_view(sku, name, master_qty)
     product_action_menu(sku, name)
@@ -452,6 +647,12 @@ def select_product_interactively(term=None):
     print("\nSelect a product:")
     for i, (num, name, count) in enumerate(matches, start=1):
         print(f"{i}. {name} (#{num}) — On Hand: {count}")
+
+    # If only one product matches, select it automatically.
+    if len(matches) == 1:
+        num, name, _ = matches[0]
+        print(f"Only one match — selecting {name} (#{num}).")
+        return num, name
 
     while True:
         choice = user_input("Enter number:\n").strip()

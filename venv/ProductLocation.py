@@ -226,7 +226,13 @@ def find_existing_backstock_locations(index, cat_code, sku, location_directory="
     return existing
 
 
-def backstock_product(sku, name, location_directory="StockroomLocations"):
+def backstock_product(sku, name, location_directory="StockroomLocations", max_amount=None):
+    """Place product into a backstock location.
+
+    When ``max_amount`` is provided (e.g. when backstocking from the
+    unlocated pool) the entered amount cannot exceed it. Returns the amount
+    actually placed, or ``None`` if nothing was placed.
+    """
     try:
         print(f"\nBackstocking {sku} — {name}")
 
@@ -234,11 +240,22 @@ def backstock_product(sku, name, location_directory="StockroomLocations"):
         current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
         print(f"Current On Hand: {current_on_hand}")
 
+        if max_amount is not None:
+            print(f"Max you can backstock: {max_amount}")
+
         # Ask amount
         try:
             amount = int(user_input("Enter amount:\n").strip())
         except ValueError:
             print("Amount must be a number.")
+            return
+
+        if amount <= 0:
+            print("Amount must be a positive number.")
+            return
+
+        if max_amount is not None and amount > max_amount:
+            print(f"Amount exceeds available stock. Max allowed: {max_amount}")
             return
 
         # Derive category from SKU
@@ -331,9 +348,11 @@ def backstock_product(sku, name, location_directory="StockroomLocations"):
 
         print(f"\n{amount} of {name} placed in {loc}.")
         print(f"On Hand: {current_on_hand}")
+        return amount
 
     except Exception as e:
         print(f"Error in backstock_product: {e}")
+        return None
 
 
 
@@ -399,19 +418,25 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             print("No backstock locations found for this product.")
             return
 
-        print("\nSelect a location to remove from:")
-        for i, file in enumerate(loc_files, start=1):
-            print(f"{i}. {file.replace('.csv','')}")
+        # If there's only one location holding this product, use it directly
+        # instead of prompting for a redundant selection.
+        if len(loc_files) == 1:
+            selected_file = loc_files[0]
+            print(f"\nOnly one location — selecting {selected_file.replace('.csv','')}.")
+        else:
+            print("\nSelect a location to remove from:")
+            for i, file in enumerate(loc_files, start=1):
+                print(f"{i}. {file.replace('.csv','')}")
 
-        while True:
-            choice = user_input("Enter number:\n").strip()
-            if choice.isdigit():
-                choice = int(choice)
-                if 1 <= choice <= len(loc_files):
-                    break
-            print("Invalid selection.")
+            while True:
+                choice = user_input("Enter number:\n").strip()
+                if choice.isdigit():
+                    choice = int(choice)
+                    if 1 <= choice <= len(loc_files):
+                        break
+                print("Invalid selection.")
 
-        selected_file = loc_files[choice - 1]
+            selected_file = loc_files[choice - 1]
         loc_path = os.path.join(location_directory, selected_file)
 
         # Load location file
