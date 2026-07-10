@@ -14,35 +14,69 @@ def show_commands():
     print(Colorize.colorize_text_blue("Welcome to the Stockroom App \n-----------------------------"))
     print(
         "Available Commands:\n\n"
-        + Colorize.colorize_text_salmon("Main App Commands:\n------------------\n")
+        + Colorize.colorize_text_salmon("Everyday Commands:\n------------------\n")
         + "MENU: Display this list.\n"
-        + "QUIT: Exit the app.\n"
-        + "READ: Import Master Inventory CSV.\n"
-        + "SORT: Sort Master Inventory by product number.\n"
-        + "WRITE: Write Master Inventory to CSV.\n"
-        + "SAVE: Save both Master Inventory and Stockroom categories.\n\n"
-
-        + Colorize.colorize_text_green("Product Management Commands:\n----------------------------\n")
-        + "ADD: Add a new product.\n"
-        + "DELETE PRODUCT: Delete a product.\n"
-        + "EDIT: Edit a product.\n"
         + "SEARCH: Search Master Inventory by name.\n"
-        + "# SEARCH: Search Master Inventory by product number.\n\n"
-
-        + Colorize.colorize_text_yellow("Category Management Commands:\n----------------------------\n")
-        + "ADD CAT: Add a new category.\n"
-        + "SET CAT: Set the categories(WARNING! Overwrites ALL categories!.\n"
-        + "SHOW CAT: Show the categories.\n"
+        + "# SEARCH: Search Master Inventory by product number.\n"
         + "CAT PROD: Show products in a category.\n\n"
 
-        + Colorize.colorize_text_orange("Location Management Commands:\n----------------------------\n")
-        + "AUDIT: Show all products in a location.\n"
-        + "BACKSTOCK: Add a product to a location.\n"
-        + "TAKE: Remove a product from a location.\n"
+        + Colorize.colorize_text_green("Stock Commands:\n---------------\n")
+        + "BACKSTOCK: Move a product into a backstock location.\n"
+        + "TAKE: Take a product from backstock to the salesfloor.\n"
+        + "AUDIT: Show all products in a location.\n\n"
+
+        + Colorize.colorize_text_yellow("App Commands:\n-------------\n")
+        + "SAVE: Save both Master Inventory and Stockroom categories.\n"
+        + "QUIT: Exit the app.\n"
+        + "ADMIN: Show advanced/administration commands.\n"
+    )
+
+
+def show_admin_commands():
+    print(Colorize.colorize_text_blue("Admin Commands \n--------------"))
+    print(
+        Colorize.colorize_text_green("Product Management:\n-------------------\n")
+        + "ADD: Add a new product.\n"
+        + "EDIT: Edit a product.\n"
+        + "DELETE PRODUCT: Delete a product.\n\n"
+
+        + Colorize.colorize_text_yellow("Category Management:\n--------------------\n")
+        + "ADD CAT: Add a new category.\n"
+        + "SET CAT: Set the categories (WARNING! Overwrites ALL categories!).\n"
+        + "SHOW CAT: Show the categories.\n\n"
+
+        + Colorize.colorize_text_orange("Location Management:\n--------------------\n")
         + "CREATE LOC: Create a new location.\n"
         + "CREATE MULTI LOC: Create multiple locations.\n"
-        + "READ LOC: Import Master Stockroom CSV.\n"
+        + "READ LOC: Import Master Stockroom CSV.\n\n"
+
+        + Colorize.colorize_text_salmon("Inventory File Management:\n--------------------------\n")
+        + "READ: Import Master Inventory CSV.\n"
+        + "WRITE: Write Master Inventory to CSV.\n"
+        + "SORT: Sort Master Inventory by product number.\n\n"
+
+        + "MENU: Return to the main menu list.\n"
     )
+
+
+def take_product_interactive():
+    """Select a product interactively, then take it from backstock."""
+    selection = select_product_interactively()
+    if not selection:
+        return
+    sku, name = selection
+    remove_product(sku, name)
+
+
+def edit_product_interactive():
+    """Select a product interactively, then edit it."""
+    selection = select_product_interactively()
+    if not selection:
+        return
+    sku, name = selection
+    edit_product(sku, name)
+
+
 def user_input(prompt):
     value = input(prompt).strip()
     if value.upper() in ("X", "CANCEL", "BACK"):
@@ -73,17 +107,14 @@ def main():
 
         match upper_raw:
 
+            # -----------------------------------
+            # PRIMARY MENU
+            # -----------------------------------
             case 'MENU':
                 show_commands()
 
-            case 'ADD CAT':
-                run_command(add_categories)
-
-            case 'SET CAT':
-                run_command(set_categories)
-
-            case 'SHOW CAT':
-                run_command(print(categories))
+            case 'ADMIN':
+                show_admin_commands()
 
             case 'CAT PROD':
                 run_command(show_products_in_category)
@@ -97,28 +128,9 @@ def main():
                     # Launch interactive backstock flow
                     backstock_product_interactive()
 
-            case 'TAKE STOCK':
-                if args:
-                    term = " ".join(args)
-                    run_command(remove_product(term))
-                else:
-                   run_command(remove_product())
+            case 'TAKE':
+                run_command(take_product_interactive)
                 dirty = True
-
-            case 'DELETE PRODUCT':
-                run_command(delete_product)
-                dirty = True
-
-            case 'CREATE LOC':
-                run_command(create_new_location)
-                dirty = True
-
-            case 'CREATE MULTI LOC':
-                run_command(create_multiple_locations)
-                dirty = True
-
-            case 'READ LOC':
-                run_command(read_from_master_inventory_csv())
 
             case 'AUDIT':
                 run_command(audit_location)
@@ -137,6 +149,50 @@ def main():
                 exit()
 
             # -----------------------------------
+            # ADMIN MENU
+            # -----------------------------------
+            case 'ADD':
+                run_command(add_single_product)
+                dirty = True
+
+            case 'EDIT':
+                run_command(edit_product_interactive)
+                dirty = True
+
+            case 'DELETE PRODUCT':
+                run_command(delete_product)
+                dirty = True
+
+            case 'ADD CAT':
+                run_command(add_categories)
+
+            case 'SET CAT':
+                run_command(set_categories)
+
+            case 'SHOW CAT':
+                run_command(lambda: print(categories))
+
+            case 'CREATE LOC':
+                run_command(create_new_location)
+                dirty = True
+
+            case 'CREATE MULTI LOC':
+                run_command(create_multiple_locations)
+                dirty = True
+
+            case 'READ LOC':
+                run_command(read_from_stock_room_csv)
+
+            case 'READ':
+                run_command(read_from_master_inventory_csv)
+
+            case 'WRITE':
+                write_to_master_inventory_csv()
+
+            case 'SORT':
+                write_to_master_inventory_csv()
+
+            # -----------------------------------
             # FALLBACK TO SINGLE-WORD COMMANDS
             # -----------------------------------
             case _:
@@ -153,36 +209,8 @@ def main():
                         if args and args[0] == 'SEARCH':
                             term = user_input('Enter product number:\n').strip().upper().zfill(4)
                             search_inventory(term)
-
-                    case 'ADD':
-                        run_command(add_single_product)
-                        dirty = True
-
-                    case 'EDIT':
-                        run_command(edit_product)
-                        dirty = True
-
-                    case 'WRITE':
-                        write_to_master_inventory_csv()
-
-                    case 'READ':
-                        read_from_master_inventory_csv()
-
-                    case 'SORT':
-                        write_to_master_inventory_csv()
-
-                    case 'TAKE':
-                        run_command(remove_product)
-                        dirty = True
-
-                    case 'BACKSTOCK':
-                        if args:
-                            # Treat args as product number
-                            product_num = args[0].zfill(4)
-                            search_by_prod_num(product_num)
                         else:
-                            # Launch interactive backstock flow
-                            backstock_product_interactive()
+                            print("Unknown command. Type MENU to see available commands.")
 
                     case _:
                         print("Unknown command. Type MENU to see available commands.")
