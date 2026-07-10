@@ -119,13 +119,35 @@ def audit_location(location_directory = "StockroomLocations"):
         return
 
     # Filter only this category's locations
-    loc_files = [
+    category_files = [
         f for f in os.listdir(location_directory)
         if f.startswith(selected_code + "-") and f.endswith(".csv")
     ]
 
+    # Only include locations that actually hold product (any qty > 0).
+    loc_files = []
+    for f in category_files:
+        loc_path = os.path.join(location_directory, f)
+        has_product = False
+        try:
+            with open(loc_path, "r") as lf:
+                reader = csv.reader(lf)
+                for row in reader:
+                    if len(row) >= 3:
+                        try:
+                            if int(row[2]) > 0:
+                                has_product = True
+                                break
+                        except ValueError:
+                            # Header or non-numeric row; skip.
+                            continue
+        except Exception:
+            continue
+        if has_product:
+            loc_files.append(f)
+
     if not loc_files:
-        print(f"No locations found for category {selected_cat}.")
+        print(f"No locations with product found for category {selected_cat}.")
         return
 
     print(f"\nLocations in category {selected_cat} ({selected_code}):")
