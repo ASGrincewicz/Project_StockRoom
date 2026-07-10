@@ -84,12 +84,31 @@ def add_single_product():
         cap = 20
 
     # Step 6 — Add to in-memory inventory
-    MI.master_inventory[prod_num] = {name: int(count)}
+    on_hand = int(count)
+    MI.master_inventory[prod_num] = {name: on_hand}
     MI.salesfloor_capacity[prod_num] = cap
 
     print(Colorize.colorize_text_blue(
         f"Product added to inventory: {prod_num} - {name} ({category}) [Capacity: {cap}]"
     ))
+
+    # Step 7 — Any stock above salesfloor capacity is not location-tracked yet,
+    # so it becomes unlocated. Offer to backstock the remainder immediately.
+    remainder = on_hand - cap
+    if remainder > 0:
+        MI.add_unlocated(prod_num, name, remainder)
+        print(Colorize.colorize_text_orange(
+            f"{remainder} unit(s) exceed salesfloor capacity ({cap}) and were added to unlocated."
+        ))
+
+        choice = user_input(
+            "Backstock the remainder now? (Y/N):\n").strip().lower()
+        if choice == "y":
+            placed = ProductLocation.backstock_product(
+                prod_num, name, max_amount=MI.get_unlocated_qty(prod_num))
+            if placed:
+                MI.reduce_unlocated(prod_num, placed)
+        print(f"Unlocated remaining: {MI.get_unlocated_qty(prod_num)}")
 
 
 def receive_product():
