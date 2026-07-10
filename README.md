@@ -56,7 +56,11 @@ Project_StockRoom/
 ├── venv/                            ← Virtual environment
 │   ├── Main.py                      ← Application entry point
 │   ├── Product.py                   ← Product class
-│   ├── MasterInventory.py          ← Inventory management
+│   ├── MasterInventory.py          ← Inventory state & core helpers (+ re-exports)
+│   ├── CategoryManager.py          ← Category state helpers & menus
+│   ├── InventoryIO.py              ← Master/unlocated CSV persistence
+│   ├── InventoryUI.py              ← Interactive inventory console menus
+│   ├── InputUtils.py               ← Shared cancel-aware input helper
 │   ├── MasterStockRoom.py          ← Location management
 │   ├── ProductLocation.py          ← Location tracking
 │   ├── Colorize.py                 ← Terminal colors
@@ -315,12 +319,16 @@ For detailed testing information, see:
 ### Key Components
 
 1. **Product.py** - Product data model with normalization
-2. **MasterInventory.py** - Inventory CRUD operations & searching
-3. **MasterStockRoom.py** - Location creation & management
-4. **ProductLocation.py** - Location-level inventory tracking
-5. **Colorize.py** - Terminal color formatting
-6. **Messages.py** - User prompts & input validation
-7. **Main.py** - CLI router & application loop
+2. **MasterInventory.py** - Inventory state (single source of truth) & core helpers; re-exports the modules below for backward compatibility
+3. **CategoryManager.py** - Category lookup/creation helpers & menus
+4. **InventoryIO.py** - Master & unlocated inventory CSV persistence
+5. **InventoryUI.py** - Interactive inventory console menus (search, edit, receive, etc.)
+6. **InputUtils.py** - Shared cancel-aware `user_input` helper
+7. **MasterStockRoom.py** - Location creation & management
+8. **ProductLocation.py** - Location-level inventory tracking
+9. **Colorize.py** - Terminal color formatting
+10. **Messages.py** - User prompts & input validation
+11. **Main.py** - CLI router & application loop
 
 ## CSV File Format
 
