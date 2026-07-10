@@ -10,8 +10,10 @@ import Colorize
 from Product import Product
 from pathlib import Path
 
-master_inventory_file = Path('master_inventory.csv')
-unlocated_inventory_file = Path('unlocated_inventory.csv')
+import config
+
+master_inventory_file = config.MASTER_INVENTORY_FILE
+unlocated_inventory_file = config.UNLOCATED_INVENTORY_FILE
 
 file_contents_read = False
 file_contents_written = False
@@ -147,7 +149,7 @@ def get_backstock_locations(sku):
     `locs` is a list of (location_name, qty) tuples.
     """
     cat_code = sku[:2]
-    loc_folder = "StockroomLocations"
+    loc_folder = str(config.LOCATIONS_DIR)
     all_locations = os.listdir(loc_folder) if os.path.exists(loc_folder) else []
 
     locs = []
@@ -236,6 +238,7 @@ def write_to_unlocated_csv(inventory_path=unlocated_inventory_file):
     """Persist the unlocated inventory to its CSV file."""
     try:
         field_names = ['Product #', 'Product Name', 'Unlocated Count']
+        Path(inventory_path).parent.mkdir(parents=True, exist_ok=True)
         with open(inventory_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(field_names)
@@ -593,6 +596,7 @@ def write_to_master_inventory_csv(inventory_path = master_inventory_file):
 
     try:
         field_names = ['Product #', 'Product Name', 'On Hand Count', 'Salesfloor Capacity']
+        Path(inventory_path).parent.mkdir(parents=True, exist_ok=True)
         write_mode = 'w' if file_contents_read or not inventory_path.exists() else 'a'
 
         with open(inventory_path, write_mode, newline='') as master_file:

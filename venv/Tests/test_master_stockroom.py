@@ -155,12 +155,12 @@ class TestLocationIndex:
     
     def test_build_location_index_with_files(self, clean_environment):
         """Test building index with location files."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         
         # Create sample location files
-        Path("StockroomLocations/01-01-A-01.csv").touch()
-        Path("StockroomLocations/01-01-A-02.csv").touch()
-        Path("StockroomLocations/02-01-B-03.csv").touch()
+        Path("data/StockroomLocations/01-01-A-01.csv").touch()
+        Path("data/StockroomLocations/01-01-A-02.csv").touch()
+        Path("data/StockroomLocations/02-01-B-03.csv").touch()
         
         index = MSR.build_location_index()
         
@@ -232,10 +232,10 @@ class TestCSVReadWrite:
         MSR.write_to_stock_room_csv()
         
         # Verify file was created
-        assert Path("master_stockroom_location.csv").exists()
+        assert Path("data/master_stockroom_location.csv").exists()
         
         # Verify content
-        with open("master_stockroom_location.csv", "r") as f:
+        with open("data/master_stockroom_location.csv", "r") as f:
             reader = csv.reader(f)
             rows = list(reader)
             assert len(rows) == 3  # header + 2 categories

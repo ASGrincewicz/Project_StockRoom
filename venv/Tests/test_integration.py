@@ -31,7 +31,7 @@ class TestInventoryWorkflow:
         MI.write_to_master_inventory_csv()
         
         # Verify file exists and has correct content
-        assert Path("master_inventory.csv").exists()
+        assert Path("data/master_inventory.csv").exists()
         
         # Clear and read back
         MI.master_inventory = {}
@@ -56,7 +56,7 @@ class TestInventoryWorkflow:
         MSR.write_to_stock_room_csv()
         
         # Verify file was created
-        assert Path("master_stockroom_location.csv").exists()
+        assert Path("data/master_stockroom_location.csv").exists()
 
 
 class TestLocationWorkflow:
@@ -64,7 +64,7 @@ class TestLocationWorkflow:
     
     def test_create_and_populate_location(self, clean_environment):
         """Test creating and populating a location."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         # Create location file
@@ -83,7 +83,7 @@ class TestLocationWorkflow:
     
     def test_multiple_location_index(self, clean_environment):
         """Test building index with multiple locations."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         # Create multiple location files
@@ -95,7 +95,7 @@ class TestLocationWorkflow:
         ]
         
         for loc in locations:
-            Path(f"StockroomLocations/{loc}").touch()
+            Path(f"data/StockroomLocations/{loc}").touch()
         
         # Build index
         index = MSR.build_location_index()
@@ -170,7 +170,7 @@ class TestFullWorkflow:
         MSR.write_to_stock_room_csv()
         
         # 4. Create locations
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         loc_path = loc_dir / "01-01-A-01.csv"
@@ -181,9 +181,9 @@ class TestFullWorkflow:
             writer.writerow(["0102", "WIDGET B", "20"])
         
         # 5. Verify everything works
-        assert Path("master_inventory.csv").exists()
-        assert Path("master_stockroom_location.csv").exists()
-        assert Path("StockroomLocations/01-01-A-01.csv").exists()
+        assert Path("data/master_inventory.csv").exists()
+        assert Path("data/master_stockroom_location.csv").exists()
+        assert Path("data/StockroomLocations/01-01-A-01.csv").exists()
         
         # 6. Reload and verify
         MI.master_inventory = {}
@@ -201,7 +201,7 @@ class TestFullWorkflow:
         MI.categories = [("WIDGETS", "01"), ("GADGETS", "02")]
         
         # Create a variety of locations
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         locations = [
@@ -212,7 +212,7 @@ class TestFullWorkflow:
         ]
         
         for loc in locations:
-            Path(f"StockroomLocations/{loc}").touch()
+            Path(f"data/StockroomLocations/{loc}").touch()
         
         # Build and verify index
         index = MSR.build_location_index()
@@ -238,7 +238,8 @@ class TestErrorHandling:
         MI.master_inventory = {}
         
         # Create malformed CSV
-        with open("master_inventory.csv", "w") as f:
+        Path("data").mkdir(exist_ok=True)
+        with open("data/master_inventory.csv", "w") as f:
             f.write("Not,Proper,CSV\nMalformed,Data")
         
         # Should not crash
@@ -257,7 +258,7 @@ class TestErrorHandling:
     
     def test_corrupted_location_file_handling(self, clean_environment):
         """Test handling of corrupted location files."""
-        loc_dir = Path("StockroomLocations")
+        loc_dir = Path("data/StockroomLocations")
         loc_dir.mkdir(exist_ok=True)
         
         # Create file with invalid data

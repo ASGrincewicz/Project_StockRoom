@@ -23,7 +23,9 @@ def temp_dir():
 @pytest.fixture
 def sample_master_inventory_csv(temp_dir):
     """Create a sample master inventory CSV file."""
-    csv_path = Path(temp_dir) / "master_inventory.csv"
+    data_dir = Path(temp_dir) / "data"
+    data_dir.mkdir(exist_ok=True)
+    csv_path = data_dir / "master_inventory.csv"
     data = [
         ["Product #", "Product Name", "On Hand Count"],
         ["0101", "WIDGET A", "50"],
@@ -40,7 +42,9 @@ def sample_master_inventory_csv(temp_dir):
 @pytest.fixture
 def sample_stockroom_csv(temp_dir):
     """Create a sample stockroom location CSV file."""
-    csv_path = Path(temp_dir) / "master_stockroom_location.csv"
+    data_dir = Path(temp_dir) / "data"
+    data_dir.mkdir(exist_ok=True)
+    csv_path = data_dir / "master_stockroom_location.csv"
     data = [
         ["Category", "Code"],
         ["WIDGETS", "01"],
@@ -56,8 +60,8 @@ def sample_stockroom_csv(temp_dir):
 @pytest.fixture
 def sample_location_file(temp_dir):
     """Create a sample location file."""
-    loc_dir = Path(temp_dir) / "StockroomLocations"
-    loc_dir.mkdir(exist_ok=True)
+    loc_dir = Path(temp_dir) / "data" / "StockroomLocations"
+    loc_dir.mkdir(parents=True, exist_ok=True)
     
     loc_path = loc_dir / "01-01-A-01.csv"
     data = [
@@ -77,8 +81,8 @@ def clean_environment(monkeypatch, temp_dir):
     # Change to temp directory
     monkeypatch.chdir(temp_dir)
     
-    # Create directories
-    loc_dir = Path(temp_dir) / "StockroomLocations"
-    loc_dir.mkdir(exist_ok=True)
+    # Create directories (all CSV data lives under data/)
+    loc_dir = Path(temp_dir) / "data" / "StockroomLocations"
+    loc_dir.mkdir(parents=True, exist_ok=True)
     
     yield temp_dir

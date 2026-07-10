@@ -61,15 +61,18 @@ Project_StockRoom/
 │   ├── ProductLocation.py          ← Location tracking
 │   ├── Colorize.py                 ← Terminal colors
 │   ├── Messages.py                 ← User messages & input
+│   ├── config.py                   ← Central data-file path configuration
 │   │
-│   ├── master_inventory.csv        ← Product data
-│   ├── master_stockroom_location.csv ← Category data
-│   ├── unlocated_inventory.csv     ← Received-but-unlocated product pool
+│   ├── data/                        ← All CSV data lives here
+│   │   ├── master_inventory.csv    ← Product data
+│   │   ├── master_stockroom_location.csv ← Category data
+│   │   ├── unlocated_inventory.csv ← Received-but-unlocated product pool
+│   │   └── StockroomLocations/     ← Location files (by category)
+│   │       ├── 01-01-A-01.csv
+│   │       ├── 01-01-A-02.csv
+│   │       └── ... (organized by category)
+│   │
 │   ├── FILES_CREATED.txt           ← Notes on generated files
-│   ├── StockroomLocations/         ← Location files (by category)
-│   │   ├── 01-01-A-01.csv
-│   │   ├── 01-01-A-02.csv
-│   │   └── ... (organized by category)
 │   │
 │   └── Tests/                      ← Comprehensive test suite
 │       ├── conftest.py
@@ -121,7 +124,14 @@ Project_StockRoom/
 
 ## Environment Variables
 
-The application does not read any environment variables. All configuration (data file names and the `StockroomLocations/` directory) is resolved relative to the current working directory.
+The application does not read any environment variables. All data-file paths are defined in `config.py` and resolved relative to the current working directory. Every CSV file lives under a single `data/` directory:
+
+- `data/master_inventory.csv`
+- `data/master_stockroom_location.csv`
+- `data/unlocated_inventory.csv`
+- `data/StockroomLocations/*.csv`
+
+The `data/` directory (and its `StockroomLocations/` subfolder) is created automatically on first save if missing.
 
 > **TODO:** If configurable data paths are desired in the future, document the corresponding environment variables here.
 
@@ -136,7 +146,7 @@ cd venv
 python3 Main.py
 ```
 
-On startup the app loads `master_stockroom_location.csv`, `master_inventory.csv`, and `unlocated_inventory.csv` (missing files are handled gracefully).
+On startup the app loads `data/master_stockroom_location.csv`, `data/master_inventory.csv`, and `data/unlocated_inventory.csv` (missing files are handled gracefully).
 
 ### Main Commands
 
@@ -295,10 +305,10 @@ For detailed testing information, see:
     └──────────────────────────────────────────────────────────┘
            
     ┌──────────────────────────────────────────────────────────┐
-    │  CSV Files (Data Persistence)                            │
-    │  ├─ master_inventory.csv                               │
-    │  ├─ master_stockroom_location.csv                      │
-    │  └─ StockroomLocations/*.csv                           │
+    │  CSV Files (Data Persistence, under data/)              │
+    │  ├─ data/master_inventory.csv                          │
+    │  ├─ data/master_stockroom_location.csv                 │
+    │  └─ data/StockroomLocations/*.csv                      │
     └──────────────────────────────────────────────────────────┘
 ```
 
@@ -314,7 +324,7 @@ For detailed testing information, see:
 
 ## CSV File Format
 
-### master_inventory.csv
+### data/master_inventory.csv
 ```csv
 Product #,Product Name,On Hand Count
 0101,ELECTRONICS,25
@@ -322,7 +332,7 @@ Product #,Product Name,On Hand Count
 0201,DESK,10
 ```
 
-### master_stockroom_location.csv
+### data/master_stockroom_location.csv
 ```csv
 Category,Code
 ELECTRONICS,01
@@ -330,7 +340,7 @@ FURNITURE,02
 TOOLS,03
 ```
 
-### StockroomLocations/01-01-A-01.csv
+### data/StockroomLocations/01-01-A-01.csv
 ```csv
 Product #,Product Name,Amount
 0101,ELECTRONICS,10
