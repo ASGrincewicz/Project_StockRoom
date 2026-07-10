@@ -181,14 +181,35 @@ def backstock_product_interactive():
     term = user_input("Search for product:\n").strip()
     MasterInventory.search_inventory(term)
 
+def find_existing_backstock_locations(index, cat_code, sku, location_directory="StockroomLocations"):
+    existing = []
 
-def backstock_product(sku, name, location_directory = "StockroomLocations"):
+    # Loop through aisles
+    for aisle in index.get(cat_code, {}):
+        # Loop through columns
+        for column in index[cat_code][aisle]:
+            # Loop through rows
+            for row in index[cat_code][aisle][column]:
+                loc = f"{cat_code}-{aisle}-{column}-{row}"
+                file_path = Path(location_directory) / f"{loc}.csv"
+
+                if file_path.exists():
+                    with open(file_path, "r") as f:
+                        reader = csv.reader(f)
+                        for r in reader:
+                            if len(r) >= 1 and r[0] == sku:
+                                existing.append(loc)
+                                break
+
+    return existing
+
+
+def backstock_product(sku, name, location_directory="StockroomLocations"):
     try:
         print(f"\nBackstocking {sku} — {name}")
 
         # Get current on-hand
         current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
-
         print(f"Current On Hand: {current_on_hand}")
 
         # Ask amount
@@ -198,22 +219,67 @@ def backstock_product(sku, name, location_directory = "StockroomLocations"):
             print("Amount must be a number.")
             return
 
-        # Category selection
-        category = MSR.select_category(MasterInventory.categories)
-        cat_name, cat_code = category
+        # Derive category from SKU
+        cat_code = sku[:2]  # "01" from "0101", "03" from "0301"
 
-        # Aisle selection
+        # Look up category name from MasterInventory.categories
+        cat_name = next((c for c, code in MasterInventory.categories if code == cat_code), None)
+
+        if cat_name is None:
+            raise ValueError(f"Category code {cat_code} not found in categories list.")
+
+        category = (cat_name, cat_code)
+
+        # Build index
         index = MSR.build_location_index()
-        aisle = MSR.select_aisle(index, cat_code)
 
-        # Column selection
-        column = MSR.select_column(index, cat_code, aisle)
+        # 1. Check for existing backstock locations for this SKU
+        existing_locs = find_existing_backstock_locations(index, cat_code, sku, location_directory)
 
-        # Row selection
-        row = MSR.select_row(index, cat_code, aisle, column)
+        if existing_locs:
+            # Suggest the FIRST existing location
+            suggested_loc = existing_locs[0]
+            print(f"\nSuggested Location (existing): {suggested_loc}")
+            confirm = user_input("Use this location? (Y/N): ").strip().lower()
 
-        loc = f"{cat_code}-{aisle}-{column}-{row}"
-        file_path = Path("StockroomLocations") / f"{loc}.csv"
+            if confirm == "y":
+                loc = suggested_loc
+            else:
+                # Move on to next open location
+                next_loc, reason = MSR.compute_next_location(index, category)
+                print(f"\nNext Open Location: {next_loc}")
+                if reason:
+                    print(f"Note: {reason}")
+
+                confirm2 = user_input("Use this location? (Y/N): ").strip().lower()
+
+                if confirm2 == "y":
+                    loc = next_loc
+                else:
+                    # Manual fallback
+                    aisle = MSR.select_aisle(index, cat_code)
+                    column = MSR.select_column(index, cat_code, aisle)
+                    row = MSR.select_row(index, cat_code, aisle, column)
+                    loc = f"{cat_code}-{aisle}-{column}-{row}"
+
+        else:
+            # No existing backstock — suggest next open location immediately
+            suggested_loc, reason = MSR.compute_next_location(index, category)
+            print(f"\nSuggested Location: {suggested_loc}")
+            if reason:
+                print(f"Note: {reason}")
+
+            confirm = user_input("Use this location? (Y/N): ").strip().lower()
+
+            if confirm == "y":
+                loc = suggested_loc
+            else:
+                aisle = MSR.select_aisle(index, cat_code)
+                column = MSR.select_column(index, cat_code, aisle)
+                row = MSR.select_row(index, cat_code, aisle, column)
+                loc = f"{cat_code}-{aisle}-{column}-{row}"
+
+        file_path = Path(location_directory) / f"{loc}.csv"
 
         # Ensure file exists
         if not file_path.exists():
@@ -241,14 +307,12 @@ def backstock_product(sku, name, location_directory = "StockroomLocations"):
             writer = csv.writer(f)
             writer.writerows(rows)
 
-        # Backstocking moves stock from the salesfloor into a location; the
-        # total on-hand count is unchanged, so master inventory stays as-is.
-
         print(f"\n{amount} of {name} placed in {loc}.")
         print(f"On Hand: {current_on_hand}")
 
     except Exception as e:
         print(f"Error in backstock_product: {e}")
+
 
 
 
@@ -261,6 +325,33 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
         current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
         print(f"Current On Hand: {current_on_hand}")
 
+        # Salesfloor capacity limit
+        cap = MasterInventory.salesfloor_capacity.get(sku, 20)
+        locs, total_loc_qty = MasterInventory.get_backstock_locations(sku)
+        salesfloor_qty = max(0, current_on_hand - total_loc_qty)
+        remaining_cap = max(0, cap - salesfloor_qty)
+
+        if remaining_cap <= 0:
+            print(f"Salesfloor is at capacity ({cap}). Cannot take more stock.")
+            return
+
+        # Taking product moves it from backstock to the salesfloor. You can
+        # only take what is actually sitting in backstock, and only up to the
+        # remaining salesfloor capacity.
+        max_takeable = max(0, min(remaining_cap, total_loc_qty))
+
+        if total_loc_qty <= 0:
+            print("No backstock available to take for this product.")
+            return
+
+        if max_takeable <= 0:
+            print("No stock available to take.")
+            return
+
+        print(f"Salesfloor Capacity: {cap}")
+        print(f"Currently on Salesfloor: {salesfloor_qty}")
+        print(f"Max you can take: {max_takeable}")
+
         # Ask amount
         try:
             amount = int(user_input("Enter amount to remove:\n").strip())
@@ -268,17 +359,19 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             print("Amount must be a number.")
             return
 
-        # Category code
-        cat_code = sku[:2]
+        if amount <= 0:
+            print("Amount must be a positive number.")
+            return
 
-        # Find matching category locations
+        if amount > max_takeable:
+            print(f"Amount exceeds available stock. Max allowed: {max_takeable}")
+            return
 
-        all_locations = os.listdir(location_directory)
-
-        loc_files = [
-            f for f in all_locations
-            if f.startswith(cat_code + "-") and f.endswith(".csv")
-        ]
+        # Only offer locations that actually hold this product in backstock.
+        loc_files = []
+        for loc_name, qty in locs:
+            if qty > 0:
+                loc_files.append(f"{loc_name}.csv")
 
         if not loc_files:
             print("No backstock locations found for this product.")
@@ -326,11 +419,11 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             writer = csv.writer(f)
             writer.writerows(rows)
 
-        # Update master inventory
-        MasterInventory.master_inventory[sku] = {name: current_on_hand - amount}
-
-        print(f"\nRemoved {amount} from {selected_file.replace('.csv','')}.")
-        print(f"New On Hand: {current_on_hand - amount}")
+        # Taking product from backstock does NOT change the master on-hand
+        # count. The stock is simply moved onto the salesfloor; only a sale
+        # would reduce on-hand, which is not a feature here.
+        print(f"\nMoved {amount} from {selected_file.replace('.csv','')} to the salesfloor.")
+        print(f"On Hand: {current_on_hand}")
 
     except Exception as e:
         print(f"Error in remove_product: {e}")

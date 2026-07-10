@@ -141,31 +141,41 @@ def compute_next_location(index, category, max_rows=20, max_columns=10, max_aisl
     if cat_code not in index or not index[cat_code]:
         return f"{cat_code}-01-A-01", None
 
-    # Aisles are numeric strings: "01", "02", ...
     aisles = sorted(index[cat_code].keys(), key=lambda x: int(x))
+
+    # --- Scan aisles in order ---
+    for aisle in aisles:
+        columns = sorted(index[cat_code][aisle].keys())
+
+        # --- Scan columns in order ---
+        for column in columns:
+            rows = sorted(index[cat_code][aisle][column], key=lambda x: int(x))
+
+            # --- Find first missing row ---
+            expected = 1
+            for r in rows:
+                if int(r) != expected:
+                    # Found a gap
+                    next_row = str(expected).zfill(2)
+                    return f"{cat_code}-{aisle}-{column}-{next_row}", None
+                expected += 1
+
+            # No gaps, append next row if within limit
+            if expected <= max_rows:
+                next_row = str(expected).zfill(2)
+                return f"{cat_code}-{aisle}-{column}-{next_row}", None
+
+        # --- No open rows in any column of this aisle ---
+        # Try next column
+        last_column = columns[-1]
+        next_column_ord = ord(last_column) + 1
+        if (next_column_ord - ord('A') + 1) <= max_columns:
+            next_column = chr(next_column_ord)
+            return f"{cat_code}-{aisle}-{next_column}-01", f"Row limit reached for aisle {aisle}."
+
+    # --- No open columns in any aisle ---
+    # Try next aisle
     last_aisle = aisles[-1]
-
-    # Columns are letters: A, B, C...
-    columns = sorted(index[cat_code][last_aisle].keys())
-    last_column = columns[-1]
-
-    # Rows are numeric strings: "01", "02", ...
-    rows = sorted(index[cat_code][last_aisle][last_column], key=lambda x: int(x))
-    last_row = rows[-1]
-
-    # --- Row cap check ---
-    next_row_int = int(last_row) + 1
-    if next_row_int <= max_rows:
-        next_row = str(next_row_int).zfill(2)
-        return f"{cat_code}-{last_aisle}-{last_column}-{next_row}", None
-
-    # --- Column cap check ---
-    next_column_ord = ord(last_column) + 1
-    if (next_column_ord - ord('A') + 1) <= max_columns:
-        next_column = chr(next_column_ord)
-        return f"{cat_code}-{last_aisle}-{next_column}-01", f"Row limit reached for column {last_column}."
-
-    # --- Aisle cap check ---
     next_aisle_int = int(last_aisle) + 1
     if next_aisle_int <= max_aisles:
         next_aisle = str(next_aisle_int).zfill(2)

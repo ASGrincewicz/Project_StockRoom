@@ -12,13 +12,14 @@ Location tracking is handled by ProductLocation.py and location CSVs.
 """
 
 class Product:
-    def __init__(self, product_name, product_num, on_hand_count):
+    def __init__(self, product_name, product_num, on_hand_count, salesfloor_capacity=20):
         """
         Initialize a Product instance safely.
 
         :param product_name: Name of the product (string)
         :param product_num: Product number (string or int; zero-padded)
         :param on_hand_count: Integer count of items in stock
+        :param salesfloor_capacity: Max units allowed on salesfloor (default 20)
         """
         # Normalize product name
         self.product_name = str(product_name).strip().upper() if product_name else "UNKNOWN"
@@ -35,6 +36,12 @@ class Product:
         except Exception:
             self.on_hand_count = 0
 
+        # Normalize salesfloor capacity
+        try:
+            self.salesfloor_capacity = int(salesfloor_capacity)
+        except Exception:
+            self.salesfloor_capacity = 20
+
     def get_product_info(self):
         """
         Print formatted product information.
@@ -42,3 +49,4 @@ class Product:
         print(f"Name: {self.product_name}")
         print(f"Product #: {self.product_num}")
         print(f"On Hand: {self.on_hand_count}")
+        print(f"Salesfloor Capacity: {self.salesfloor_capacity}")
