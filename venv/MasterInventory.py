@@ -16,6 +16,7 @@ file_contents_read = False
 file_contents_written = False
 
 master_inventory = dict()
+salesfloor_capacity = dict()
 categories = []
 
 # Imported after `categories` is defined so the circular chain
@@ -94,11 +95,19 @@ def add_single_product():
         print("Invalid count.")
         return
 
-    # Step 5 — Add to in-memory inventory
+    # Step 5 — Salesfloor capacity
+    cap_input = user_input("Enter salesfloor capacity (default 20):\n").strip()
+    if cap_input and cap_input.isdigit():
+        cap = int(cap_input)
+    else:
+        cap = 20
+
+    # Step 6 — Add to in-memory inventory
     master_inventory[prod_num] = {name: int(count)}
+    salesfloor_capacity[prod_num] = cap
 
     print(Colorize.colorize_text_blue(
-        f"Product added to inventory: {prod_num} - {name} ({category})"
+        f"Product added to inventory: {prod_num} - {name} ({category}) [Capacity: {cap}]"
     ))
 
 
@@ -112,6 +121,7 @@ def add_multi_product_from_file(products_to_add):
             master_inventory[product.product_num] = {
                 product.product_name.upper(): product.on_hand_count
             }
+            salesfloor_capacity[product.product_num] = product.salesfloor_capacity
             #print(f'{product.product_name.upper()} added.')
 
     except Exception as e:
@@ -171,7 +181,9 @@ def print_product_view(sku, name, master_qty):
     print(f"SKU: {sku}")
     print(f"Name: {name}")
     print(f"Category: {cat_name} ({cat_code})")
+    cap = salesfloor_capacity.get(sku, 20)
     print(f"Master On Hand: {master_qty}")
+    print(f"Salesfloor Capacity: {cap}")
 
     if locs:
         print("\nBackstock Locations:")
@@ -286,7 +298,9 @@ def edit_product(sku, name):
             print("Error: Product not found in master inventory.")
             return
 
+        current_cap = salesfloor_capacity.get(sku, 20)
         print(f"Current On Hand: {current_on_hand}")
+        print(f"Current Salesfloor Capacity: {current_cap}")
 
         # New name
         new_name = user_input("New Product name (leave blank to keep current):\n").strip().upper()
@@ -304,12 +318,25 @@ def edit_product(sku, name):
         else:
             new_on_hand = current_on_hand  # keep current
 
+        # New salesfloor capacity
+        new_cap_input = user_input("New Salesfloor Capacity (leave blank to keep current):\n").strip()
+        if new_cap_input:
+            try:
+                new_cap = int(new_cap_input)
+            except ValueError:
+                print("Capacity must be a number.")
+                return
+        else:
+            new_cap = current_cap
+
         # Update master inventory
         master_inventory[sku] = {new_name: new_on_hand}
+        salesfloor_capacity[sku] = new_cap
 
         print(f"\nUpdated {sku}:")
         print(f"Name: {new_name}")
         print(f"On Hand: {new_on_hand}")
+        print(f"Salesfloor Capacity: {new_cap}")
 
     except Exception as e:
         print(f"Error editing product: {e}")
@@ -346,10 +373,14 @@ def read_from_master_inventory_csv(inventory_path = master_inventory_file):
 
             for row in reader:
                 try:
+                    cap_val = row.get('Salesfloor Capacity', '20').strip()
+                    # On-hand can never be negative; clamp any bad/legacy values to 0.
+                    on_hand = max(0, int(row.get('On Hand Count', '0').strip()))
                     prod = Product(
                         row.get('Product Name', '').strip(),
                         row.get('Product #', '').strip(),
-                        int(row.get('On Hand Count', '0').strip())
+                        on_hand,
+                        int(cap_val) if cap_val.isdigit() else 20
                     )
                     products_to_add.add(prod)
                 except Exception:
@@ -366,7 +397,7 @@ def write_to_master_inventory_csv(inventory_path = master_inventory_file):
     global file_contents_written
 
     try:
-        field_names = ['Product #', 'Product Name', 'On Hand Count']
+        field_names = ['Product #', 'Product Name', 'On Hand Count', 'Salesfloor Capacity']
         write_mode = 'w' if file_contents_read or not inventory_path.exists() else 'a'
 
         with open(inventory_path, write_mode, newline='') as master_file:
@@ -379,7 +410,8 @@ def write_to_master_inventory_csv(inventory_path = master_inventory_file):
             for num in sort_inventory_by_prod_num():
                 for name, count in master_inventory[num].items():
                     try:
-                        writer.writerow([num, name, int(count)])
+                        cap = salesfloor_capacity.get(num, 20)
+                        writer.writerow([num, name, int(count), cap])
                     except ValueError:
                         print(f"Invalid count for {num}. Skipping.")
 

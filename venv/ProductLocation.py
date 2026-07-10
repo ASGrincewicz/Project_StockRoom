@@ -325,6 +325,33 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
         current_on_hand = next(iter(MasterInventory.master_inventory[sku].values()))
         print(f"Current On Hand: {current_on_hand}")
 
+        # Salesfloor capacity limit
+        cap = MasterInventory.salesfloor_capacity.get(sku, 20)
+        locs, total_loc_qty = MasterInventory.get_backstock_locations(sku)
+        salesfloor_qty = max(0, current_on_hand - total_loc_qty)
+        remaining_cap = max(0, cap - salesfloor_qty)
+
+        if remaining_cap <= 0:
+            print(f"Salesfloor is at capacity ({cap}). Cannot take more stock.")
+            return
+
+        # Taking product moves it from backstock to the salesfloor. You can
+        # only take what is actually sitting in backstock, and only up to the
+        # remaining salesfloor capacity.
+        max_takeable = max(0, min(remaining_cap, total_loc_qty))
+
+        if total_loc_qty <= 0:
+            print("No backstock available to take for this product.")
+            return
+
+        if max_takeable <= 0:
+            print("No stock available to take.")
+            return
+
+        print(f"Salesfloor Capacity: {cap}")
+        print(f"Currently on Salesfloor: {salesfloor_qty}")
+        print(f"Max you can take: {max_takeable}")
+
         # Ask amount
         try:
             amount = int(user_input("Enter amount to remove:\n").strip())
@@ -332,17 +359,19 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             print("Amount must be a number.")
             return
 
-        # Category code
-        cat_code = sku[:2]
+        if amount <= 0:
+            print("Amount must be a positive number.")
+            return
 
-        # Find matching category locations
+        if amount > max_takeable:
+            print(f"Amount exceeds available stock. Max allowed: {max_takeable}")
+            return
 
-        all_locations = os.listdir(location_directory)
-
-        loc_files = [
-            f for f in all_locations
-            if f.startswith(cat_code + "-") and f.endswith(".csv")
-        ]
+        # Only offer locations that actually hold this product in backstock.
+        loc_files = []
+        for loc_name, qty in locs:
+            if qty > 0:
+                loc_files.append(f"{loc_name}.csv")
 
         if not loc_files:
             print("No backstock locations found for this product.")
@@ -390,11 +419,11 @@ def remove_product(sku, name, location_directory = "StockroomLocations"):
             writer = csv.writer(f)
             writer.writerows(rows)
 
-        # Update master inventory
-        MasterInventory.master_inventory[sku] = {name: current_on_hand - amount}
-
-        print(f"\nRemoved {amount} from {selected_file.replace('.csv','')}.")
-        print(f"New On Hand: {current_on_hand - amount}")
+        # Taking product from backstock does NOT change the master on-hand
+        # count. The stock is simply moved onto the salesfloor; only a sale
+        # would reduce on-hand, which is not a feature here.
+        print(f"\nMoved {amount} from {selected_file.replace('.csv','')} to the salesfloor.")
+        print(f"On Hand: {current_on_hand}")
 
     except Exception as e:
         print(f"Error in remove_product: {e}")
