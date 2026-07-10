@@ -219,14 +219,11 @@ def search_inventory(term, inventory_path = master_inventory_file):
     term = term.lower()
     matches = []
 
-    # Load master inventory
-    with open(inventory_path, "r") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if len(row) >= 3:
-                sku, name, on_hand = row[0], row[1], row[2]
-                if term in sku.lower() or term in name.lower():
-                    matches.append((sku, name, int(on_hand)))
+    # Search in-memory master inventory
+    for sku, name_dict in master_inventory.items():
+        for name, on_hand in name_dict.items():
+            if term in sku.lower() or term in name.lower():
+                matches.append((sku, name, int(on_hand)))
 
     if not matches:
         print("No matching products found.")
