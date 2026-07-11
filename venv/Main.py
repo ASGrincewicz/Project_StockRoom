@@ -20,8 +20,8 @@ def show_commands():
         + "MENU: Display this list.\n"
         + "SEARCH: Search Master Inventory by name.\n"
         + "# SEARCH: Search Master Inventory by product number.\n"
-        + "CAT PROD: Show products in a category.\n\n"
-        + "About: Show information about the app.\n"
+        + "CAT PROD: Show products in a category.\n"
+        + "ABOUT: Show information about the app.\n\n"
 
         + Colorize.colorize_text_green("Stock Commands:\n---------------\n")
         + "BACKSTOCK: Move a product into a backstock location.\n"
