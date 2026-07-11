@@ -6,6 +6,8 @@ Cleaned & Crash‑Proof Stockroom Application Runner
 from MasterStockRoom import *
 from ProductLocation import *
 from MasterInventory import *
+import sys
+
 import Colorize
 import Messages as MSG
 
@@ -19,6 +21,7 @@ def show_commands():
         + "SEARCH: Search Master Inventory by name.\n"
         + "# SEARCH: Search Master Inventory by product number.\n"
         + "CAT PROD: Show products in a category.\n\n"
+        + "About: Show information about the app.\n"
 
         + Colorize.colorize_text_green("Stock Commands:\n---------------\n")
         + "BACKSTOCK: Move a product into a backstock location.\n"
@@ -59,6 +62,26 @@ def show_admin_commands():
 
         + "MENU: Return to the main menu list.\n"
     )
+def show_about():
+    print("About the Developer")
+    print("-------------------")
+    print("Name: Aaron Grincewicz")
+    print("Location: Massachusetts, USA")
+    print("Role: Retail Team Leader & Software Developer")
+    print("Focus Areas: Systems architecture, inventory automation, game dev, retro computing")
+    print()
+    print("About This Project")
+    print("------------------")
+    print("Stockroom is a portfolio demonstration of a modular inventory management system.")
+    print("It showcases state-driven architecture, CSV persistence, and real-world workflows.")
+    print()
+    print("Future Work")
+    print("-----------")
+    print("SolidCore expands this concept into a full framework with stronger abstractions.")
+    print("Copyright")
+    print("---------")
+    print("Copyright © 2026 Aaron Grincewicz. All rights reserved.")
+
 
 
 def take_product_interactive():
@@ -115,6 +138,9 @@ def main():
             case 'MENU':
                 show_commands()
 
+            case 'ABOUT':
+                run_command(show_about)
+
             case 'ADMIN':
                 show_admin_commands()
 
@@ -158,7 +184,7 @@ def main():
                     write_to_stock_room_csv()
                     write_to_unlocated_csv()
                 print("Goodbye.")
-                exit()
+                sys.exit()
 
             # -----------------------------------
             # ADMIN MENU
